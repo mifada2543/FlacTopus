@@ -1,12 +1,14 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { X, Sparkles, Loader, UploadCloud, FileText } from 'lucide-react';
 import { generateSkillTree } from '../utils/aiService';
+import { useAuth } from '../hooks/useAuth';
 import * as pdfjsLib from 'pdfjs-dist';
 
 // Menggunakan CDN untuk worker PDF.js yang sesuai dengan versi yang diinstall
 pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.mjs`;
 
 export const AIGenerateModal = ({ onGenerate, onClose }) => {
+  const { csrfToken } = useAuth();
   const [topic, setTopic] = useState('');
   const [file, setFile] = useState(null);
   const [isDragging, setIsDragging] = useState(false);
@@ -102,10 +104,10 @@ export const AIGenerateModal = ({ onGenerate, onClose }) => {
         }
         
         // Kirim teks hasil ekstraksi ke AI
-        const data = await generateSkillTree(extractedText, true);
+        const data = await generateSkillTree(extractedText, true, csrfToken);
         onGenerate(data);
       } else {
-        const data = await generateSkillTree(topic, false);
+        const data = await generateSkillTree(topic, false, csrfToken);
         onGenerate(data);
       }
     } catch (err) {

@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { X, Sparkles, Send, Loader, Bot, User, Trash2, Maximize2, Minimize2 } from 'lucide-react';
 import { chatWithStudentAssistant } from '../utils/aiService';
 import { useRive } from '@rive-app/react-canvas';
+import { QUIZ_API, RUANGAN_API } from '../utils/api';
 
 const AiMascotReviewing = () => {
   const { rive, RiveComponent } = useRive({
@@ -23,7 +24,7 @@ const AiMascotReviewing = () => {
   );
 };
 
-export default function StudentAIAssistantModal({ onClose, currentItem, quizState, studentName }) {
+export default function StudentAIAssistantModal({ onClose, currentItem, quizState, studentName, ruanganId, csrfToken }) {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
@@ -88,8 +89,24 @@ export default function StudentAIAssistantModal({ onClose, currentItem, quizStat
     setIsTyping(true);
     
     try {
-      const aiResponse = await chatWithStudentAssistant(newMessages, buildContext(), studentName);
-      setMessages([...newMessages, { role: 'model', content: aiResponse }]);
+      const aiResponse = await chatWithStudentAssistant(newMessages, buildContext(), studentName, csrfToken);
+      const finalMessages = [...newMessages, { role: 'model', content: aiResponse }];
+      setMessages(finalMessages);
+      // Simpan chat ke backend
+      if (ruanganId) {
+        fetch(QUIZ_API, {
+          method: 'POST',
+          credentials: 'same-origin',
+          headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrfToken },
+          body: JSON.stringify({
+            action: 'save_chat',
+            ruangan_id: ruanganId,
+            node_id: currentItem?.id || '',
+            node_label: currentItem?.title || '',
+            messages: finalMessages,
+          }),
+        }).catch(() => {}); // fire-and-forget
+      }
     } catch (err) {
       setMessages([...newMessages, { role: 'model', content: `[ERROR] Wah, asisten sedang sibuk. Coba lagi sebentar ya!` }]);
     } finally {

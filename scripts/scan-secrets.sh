@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ============================================================
-# scan-secrets.sh — Pemindai secret sederhana untuk Project_lomba
+# scan-secrets.sh — Pemindai secret sederhana untuk FlacTopus
 # Mendeteksi API key / file .env / kunci privat yang ter-commit
 # SEBELUM di-commit atau di-push.
 #
@@ -20,7 +20,7 @@ MODE="${1:-all}"
 
 # Pastikan dijalankan di dalam repo git (hindari hasil "bersih" palsu di folder lain)
 if ! git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
-    echo "⛔ Bukan direktori repo git. Jalankan script ini dari dalam Project_lomba."
+    echo "⛔ Bukan direktori repo git. Jalankan script ini dari dalam FlacTopus."
     exit 1
 fi
 
