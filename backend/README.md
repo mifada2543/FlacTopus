@@ -18,7 +18,7 @@ berlaku lagi**.
 1. React memanggil `auth/session.php` untuk cek status login (sumber kebenaran
    ada di server) — hook `frontend/src/hooks/useAuth.js`.
 2. Login/register → `auth/login.php` / `auth/register.php` (session PHP,
-   cookie `PLomba` dengan path `/FlacTopus`).
+   cookie `FlacTopus` dengan path `/FlacTopus`).
 3. Data ruangan & silabus → `backend/controller/api/ruangan.php` (wajib login;
    POST wajib header `X-CSRF-Token`; RBAC per aksi).
 
