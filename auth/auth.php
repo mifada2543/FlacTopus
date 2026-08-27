@@ -50,7 +50,25 @@ function require_auth_json(): array
     if (empty($_SESSION['user'])) {
         json_response(['success' => false, 'message' => 'Anda harus login.'], 401);
     }
-    return $_SESSION['user'];
+
+    // --- Session Hijacking Detection ---
+    // Cek apakah session_id saat ini cocok dengan yang tersimpan di DB.
+    // Jika tidak cocok, session mungkin dicuri → hancurkan.
+    $user = $_SESSION['user'];
+    $currentSid = session_id();
+    if (!empty($user['id']) && !empty($_SESSION['last_session_id'])) {
+        if ($_SESSION['last_session_id'] !== $currentSid) {
+            // Session tidak cocok → kemungkinan session hijacking
+            $_SESSION = [];
+            session_destroy();
+            json_response([
+                'success' => false,
+                'message' => 'Sesi telah dialihkan karena aktivitas mencurigakan. Silakan login ulang.',
+            ], 401);
+        }
+    }
+
+    return $user;
 }
 
 // ------------------------------------------------------------

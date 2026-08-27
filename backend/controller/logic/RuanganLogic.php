@@ -254,8 +254,8 @@ class RuanganLogic
             return ['success' => false, 'message' => 'Nama ruangan minimal 3 karakter.'];
         }
 
-        if (!$this->isOwnerOrAdmin($id, (int) $user['id'])) {
-            return ['success' => false, 'message' => 'Hanya guru atau ketua kelas yang bisa mengubah ruangan.'];
+        if (!$this->isOwnerOrSystemAdmin($id, (int) $user['id'])) {
+            return ['success' => false, 'message' => 'Hanya guru pembuat ruangan atau admin sistem yang bisa mengubah ruangan.'];
         }
 
         // Pastikan ruangan ada (juga untuk jalur admin yang melewati isOwner)
@@ -405,8 +405,8 @@ class RuanganLogic
     {
         $this->purgeExpired();
 
-        if (!$this->isOwnerOrAdmin($ruanganId, (int) $user['id'])) {
-            return ['success' => false, 'message' => 'Hanya guru atau ketua kelas yang bisa menyimpan silabus.'];
+        if (!$this->isOwnerOrSystemAdmin($ruanganId, (int) $user['id'])) {
+            return ['success' => false, 'message' => 'Hanya guru pembuat ruangan atau admin sistem yang bisa menyimpan silabus.'];
         }
 
         // Pastikan ruangan benar-benar ada (hindari FK exception → HTTP 500)
@@ -457,8 +457,8 @@ class RuanganLogic
     {
         $this->purgeExpired();
 
-        if (!$this->isOwnerOrAdmin($ruanganId, (int) $user['id'])) {
-            return ['success' => false, 'message' => 'Hanya guru atau ketua kelas yang bisa mengeluarkan murid.'];
+        if (!$this->isOwnerOrSystemAdmin($ruanganId, (int) $user['id'])) {
+            return ['success' => false, 'message' => 'Hanya guru pembuat ruangan atau admin sistem yang bisa mengeluarkan murid.'];
         }
 
         $stmt = $this->db->prepare('DELETE FROM class_members WHERE ruangan_id = ? AND user_id = ?');
@@ -643,6 +643,22 @@ class RuanganLogic
         $stmt = $this->db->prepare("SELECT id FROM class_members WHERE ruangan_id = ? AND user_id = ? AND role = 'admin'");
         $stmt->execute([$ruanganId, $userId]);
         return (bool) $stmt->fetch();
+    }
+
+    /**
+     * Cek apakah user adalah pemilik ruangan ATAU admin sistem.
+     * TIDAK termasuk ketua kelas (class member admin).
+     */
+    private function isOwnerOrSystemAdmin(int $ruanganId, int $userId): bool
+    {
+        if ($this->isOwner($ruanganId, $userId)) {
+            return true;
+        }
+        // Cek apakah user adalah admin sistem (role = 'admin' di tabel users)
+        $stmt = $this->db->prepare('SELECT role FROM users WHERE id = ?');
+        $stmt->execute([$userId]);
+        $row = $stmt->fetch();
+        return $row && ($row['role'] ?? '') === 'admin';
     }
 
     private function canAccess(array $user, int $ruanganId): bool

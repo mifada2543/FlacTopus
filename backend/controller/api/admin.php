@@ -287,6 +287,21 @@ if ($method === 'POST') {
             $logger->log($user['id'], 'reset_password');
             json_response(['success' => true, 'message' => 'Password berhasil di-reset.']);
 
+        // --- Kick member from room ---
+        case 'kick':
+            $roomId = (int) ($body['id'] ?? 0);
+            $memberUserId = (int) ($body['user_id'] ?? 0);
+            if ($roomId <= 0 || $memberUserId <= 0) {
+                json_response(['success' => false, 'message' => 'Parameter tidak valid.'], 400);
+            }
+            require_once __DIR__ . '/../logic/RuanganLogic.php';
+            $logic = new RuanganLogic();
+            $res = $logic->kick($user, $roomId, $memberUserId);
+            if ($res['success']) {
+                $logger->log($user['id'], 'kick_member');
+            }
+            json_response($res, $res['success'] ? 200 : 400);
+
         default:
             json_response(['success' => false, 'message' => 'Aksi POST tidak dikenal.'], 400);
     }

@@ -33,9 +33,9 @@ class LoginRegisterLogic
         $email = strtolower(trim($email));
         $role  = trim($role);
 
-        // RBAC: hanya student/teacher yang bisa daftar sendiri.
-        // Admin tidak bisa dibuat lewat register (harus di-seed langsung di DB).
-        if (!in_array($role, ['student', 'teacher'], true)) {
+        // RBAC: hanya student yang bisa daftar sendiri.
+        // Guru/admin tidak bisa dibuat lewat register (harus di-approve admin).
+        if (!in_array($role, ['student'], true)) {
             return ['success' => false, 'message' => 'Role tidak valid.'];
         }
 
@@ -64,13 +64,13 @@ class LoginRegisterLogic
         // --- Simpan dengan password ter-hash (bcrypt) ---
         $hash = password_hash($password, PASSWORD_BCRYPT);
         $stmt = $this->db->prepare(
-            'INSERT INTO users (name, email, password_hash, role) VALUES (?, ?, ?, ?)'
+            'INSERT INTO users (name, email, password_hash, role, status) VALUES (?, ?, ?, ?, ?)'
         );
-        $stmt->execute([$name, $email, $hash, $role]);
+        $stmt->execute([$name, $email, $hash, $role, 'pending']);
 
         return [
             'success' => true,
-            'message' => 'Registrasi berhasil! Silakan login.',
+            'message' => 'Registrasi berhasil! Akun Anda menunggu persetujuan admin. Anda akan bisa login setelah disetujui.',
             'user_id' => (int) $this->db->lastInsertId(),
         ];
     }
@@ -85,7 +85,7 @@ class LoginRegisterLogic
         $email = strtolower(trim($email));
 
         $stmt = $this->db->prepare(
-            'SELECT id, name, email, password_hash, role FROM users WHERE email = ?'
+            'SELECT id, name, email, password_hash, role, status FROM users WHERE email = ?'
         );
         $stmt->execute([$email]);
         $user = $stmt->fetch();
@@ -93,6 +93,14 @@ class LoginRegisterLogic
         if (!$user || !password_verify($password, $user['password_hash'])) {
             // Jawaban seragam agar tidak bocor akun mana yang terdaftar
             return ['success' => false, 'message' => 'Email atau password salah.'];
+        }
+
+        // --- Cek status akun ---
+        if (($user['status'] ?? 'active') === 'pending') {
+            return ['success' => false, 'message' => 'Akun Anda masih menunggu persetujuan admin. Silakan coba lagi nanti.', 'pending' => true];
+        }
+        if (($user['status'] ?? 'active') === 'rejected') {
+            return ['success' => false, 'message' => 'Akun Anda telah ditolak oleh admin.'];
         }
 
         // --- Regenerasi session ID untuk cegah session fixation ---

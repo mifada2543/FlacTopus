@@ -502,6 +502,137 @@ if ($method === 'GET') {
         ]);
     }
 
+    // === AI CHAT HISTORY (Guru melihat riwayat chat murid dari JSON files) ===
+    if ($action === 'chat_history') {
+        $stmt = $db->prepare('SELECT user_id, kode_ruangan FROM ruangan WHERE id = ?');
+        $stmt->execute([$ruanganId]);
+        $room = $stmt->fetch();
+        $isOwner = $room && (int) $room['user_id'] === (int) $user['id'];
+        
+        if (!$isOwner && $user['role'] !== 'admin') {
+            json_response(['success' => false, 'message' => 'Hanya guru pembuat ruangan atau admin yang bisa melihat riwayat chat.'], 403);
+        }
+
+        $studentId = (int) ($_GET['student_id'] ?? 0);
+        $nodeId = $_GET['node_id'] ?? '';
+        $roomCode = $room['kode_ruangan'] ?? '';
+
+        $chatDir = __DIR__ . '/../../../storage/chat';
+        $students = [];
+        $allChats = [];
+
+        // Scan semua folder murid yang punya chat di ruangan ini
+        if (is_dir($chatDir)) {
+            $userDirs = array_filter(glob($chatDir . '/*'), 'is_dir');
+            foreach ($userDirs as $userDir) {
+                $userName = basename($userDir);
+                $roomChatDir = $userDir . '/' . $roomCode;
+                $chatFile = $roomChatDir . '/chat.json';
+
+                if (!is_file($chatFile)) continue;
+
+                $chatData = json_decode((string) file_get_contents($chatFile), true);
+                if (!is_array($chatData)) continue;
+
+                // Filter by student_id if specified
+                $chatUserId = $chatData['user_id'] ?? 0;
+                if ($studentId > 0 && (int) $chatUserId !== $studentId) continue;
+
+                $studentName = $chatData['user_name'] ?? $userName;
+                $students[$chatUserId] = ['id' => (int) $chatUserId, 'name' => $studentName];
+
+                $messages = $chatData['messages'] ?? [];
+                foreach ($messages as $msg) {
+                    $msgNodeId = $msg['node_id'] ?? '';
+                    if ($nodeId !== '' && $msgNodeId !== $nodeId) continue;
+
+                    $allChats[] = [
+                        'user_id'      => (int) $chatUserId,
+                        'student_name' => $studentName,
+                        'node_id'      => $msgNodeId,
+                        'node_label'   => $msg['node_label'] ?? '',
+                        'role'         => $msg['role'] ?? 'user',
+                        'content'      => $msg['content'] ?? '',
+                        'created_at'   => $msg['created_at'] ?? '',
+                    ];
+                }
+            }
+        }
+
+        // Sort by user_id, node_id, created_at
+        usort($allChats, function($a, $b) {
+            if ($a['user_id'] !== $b['user_id']) return $a['user_id'] <=> $b['user_id'];
+            if ($a['node_id'] !== $b['node_id']) return strcmp($a['node_id'], $b['node_id']);
+            return strcmp($a['created_at'], $b['created_at']);
+        });
+
+        json_response([
+            'success'  => true,
+            'students' => array_values($students),
+            'chats'    => $allChats,
+        ]);
+    }
+
+    // === ANALYTICS CHEATING (Murid yang pindah tab saat quiz) ===
+    if ($action === 'analytics_cheating') {
+        $stmt = $db->prepare('SELECT user_id FROM ruangan WHERE id = ?');
+        $stmt->execute([$ruanganId]);
+        $room = $stmt->fetch();
+        $isOwner = $room && (int) $room['user_id'] === (int) $user['id'];
+
+        $isKetua = false;
+        if (!$isOwner) {
+            $stmtRole = $db->prepare("SELECT role FROM class_members WHERE ruangan_id = ? AND user_id = ?");
+            $stmtRole->execute([$ruanganId, (int) $user['id']]);
+            $member = $stmtRole->fetch();
+            $isKetua = $member && $member['role'] === 'admin';
+        }
+
+        if (!$isOwner && !$isKetua && $user['role'] !== 'admin') {
+            json_response(['success' => false, 'message' => 'Hanya guru atau ketua kelas yang bisa melihat data ini.'], 403);
+        }
+
+        // Ambil murid yang pernah pindah tab (tab_switches > 0)
+        $stmt = $db->prepare(
+            "SELECT qa.user_id, u.name, u.email,
+                    COUNT(qa.id) AS total_attempts,
+                    SUM(qa.tab_switches) AS total_switches,
+                    ROUND(AVG(qa.score), 1) AS avg_score,
+                    MAX(qa.tab_switches) AS max_switches_per_attempt,
+                    MAX(qa.created_at) AS last_attempt
+             FROM quiz_attempts qa
+             JOIN users u ON u.id = qa.user_id
+             INNER JOIN class_members cm ON cm.user_id = qa.user_id AND cm.ruangan_id = qa.ruangan_id
+             WHERE qa.ruangan_id = ? AND qa.tab_switches > 0
+             GROUP BY qa.user_id, u.name, u.email
+             ORDER BY total_switches DESC"
+        );
+        $stmt->execute([$ruanganId]);
+        $cheaters = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        // Detail per attempt untuk murid yang curang
+        $details = [];
+        if (!empty($cheaters)) {
+            $userIds = array_column($cheaters, 'user_id');
+            $placeholders = implode(',', array_fill(0, count($userIds), '?'));
+            $stmt = $db->prepare(
+                "SELECT qa.user_id, u.name, qa.node_label, qa.score, qa.tab_switches, qa.created_at
+                 FROM quiz_attempts qa
+                 JOIN users u ON u.id = qa.user_id
+                 WHERE qa.ruangan_id = ? AND qa.tab_switches > 0
+                 ORDER BY qa.user_id, qa.created_at DESC"
+            );
+            $stmt->execute([$ruanganId]);
+            $details = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        }
+
+        json_response([
+            'success' => true,
+            'cheaters' => $cheaters,
+            'details'  => $details,
+        ]);
+    }
+
     json_response(['success' => false, 'message' => 'Action tidak dikenal.'], 400);
 }
 
@@ -543,9 +674,11 @@ if ($method === 'POST') {
             json_response(['success' => false, 'message' => 'Anda bukan anggota kelas ini.'], 403);
         }
 
+        $tabSwitches = max(0, (int) ($body['tab_switches'] ?? 0));
+
         $stmt = $db->prepare(
-            'INSERT IGNORE INTO quiz_attempts (ruangan_id, user_id, node_id, node_label, score, total_questions, correct_answers, wrong_answers)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
+            'INSERT IGNORE INTO quiz_attempts (ruangan_id, user_id, node_id, node_label, score, total_questions, correct_answers, wrong_answers, tab_switches)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)'
         );
         $stmt->execute([
             $ruanganId,
@@ -556,6 +689,7 @@ if ($method === 'POST') {
             $totalQuestions,
             $correctAnswers,
             $wrongAnswers,
+            $tabSwitches,
         ]);
 
         json_response([
@@ -563,6 +697,91 @@ if ($method === 'POST') {
             'message' => 'Jawaban berhasil dicatat!',
             'attempt_id' => (int) $db->lastInsertId(),
         ]);
+    }
+
+    // === SAVE AI CHAT HISTORY (JSON file) ===
+    if ($action === 'save_chat') {
+        $ruanganId  = (int) ($body['ruangan_id'] ?? 0);
+        $nodeId     = (string) ($body['node_id'] ?? '');
+        $nodeLabel  = (string) ($body['node_label'] ?? '');
+        $messages   = $body['messages'] ?? [];
+
+        if (!$ruanganId || empty($messages)) {
+            json_response(['success' => false, 'message' => 'ruangan_id dan messages wajib diisi.'], 400);
+        }
+
+        // Pastikan user adalah anggota kelas ini
+        $stmt = $db->prepare('SELECT id FROM class_members WHERE ruangan_id = ? AND user_id = ?');
+        $stmt->execute([$ruanganId, (int) $user['id']]);
+        if (!$stmt->fetch()) {
+            json_response(['success' => false, 'message' => 'Anda bukan anggota kelas ini.'], 403);
+        }
+
+        // Ambil nama user dan kode ruangan
+        $stmt = $db->prepare('SELECT name FROM users WHERE id = ?');
+        $stmt->execute([(int) $user['id']]);
+        $userName = $stmt->fetchColumn() ?: 'unknown';
+
+        $stmt = $db->prepare('SELECT kode_ruangan FROM ruangan WHERE id = ?');
+        $stmt->execute([$ruanganId]);
+        $roomCode = $stmt->fetchColumn() ?: 'unknown';
+
+        // Buat path: storage/chat/[nama_user]/[code_ruangan]/chat.json
+        // Sanitize nama user untuk filesystem (hapus karakter yang tidak aman)
+        $safeUserName = preg_replace('/[^a-zA-Z0-9_\-]/', '_', $userName);
+        $chatDir = __DIR__ . '/../../../storage/chat/' . $safeUserName . '/' . $roomCode;
+        if (!is_dir($chatDir)) {
+            mkdir($chatDir, 0775, true);
+        }
+
+        $chatFile = $chatDir . '/chat.json';
+
+        // Baca file lama jika ada
+        $existingData = [];
+        if (is_file($chatFile)) {
+            $existingData = json_decode((string) file_get_contents($chatFile), true);
+            if (!is_array($existingData)) $existingData = [];
+        }
+
+        // Update messages untuk node ini (replace per node)
+        if (!isset($existingData['messages'])) $existingData['messages'] = [];
+
+        // Hapus messages lama untuk node ini
+        $existingData['messages'] = array_filter($existingData['messages'], function($m) use ($nodeId) {
+            return ($m['node_id'] ?? '') !== $nodeId;
+        });
+
+        // Tambah messages baru
+        $now = date('Y-m-d H:i:s');
+        foreach ($messages as $msg) {
+            $role = ($msg['role'] === 'user') ? 'user' : 'model';
+            $content = (string) ($msg['content'] ?? '');
+            if ($content !== '') {
+                $existingData['messages'][] = [
+                    'node_id'    => $nodeId,
+                    'node_label' => $nodeLabel,
+                    'role'       => $role,
+                    'content'    => $content,
+                    'created_at' => $now,
+                ];
+            }
+        }
+
+        // Metadata
+        $existingData['user_id'] = (int) $user['id'];
+        $existingData['user_name'] = $userName;
+        $existingData['ruangan_id'] = $ruanganId;
+        $existingData['room_code'] = $roomCode;
+        $existingData['updated_at'] = $now;
+
+        // Tulis atomik (temp + rename)
+        $json = json_encode($existingData, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+        $tmp = $chatFile . '.tmp';
+        if (file_put_contents($tmp, $json) !== false) {
+            rename($tmp, $chatFile);
+        }
+
+        json_response(['success' => true, 'message' => 'Riwayat chat berhasil disimpan.']);
     }
 
     json_response(['success' => false, 'message' => 'Action tidak dikenal.'], 400);

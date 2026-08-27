@@ -26,7 +26,7 @@ const REDIRECT_TEACHER = '/';
 const REDIRECT_STUDENT = '/';
 
 // --- Session ---
-const SESSION_NAME = 'PLomba';
+const SESSION_NAME = 'FlacTopus';
 const SESSION_LIFETIME = 7200;      // Masa berlaku maksimal sesi (detik) = 2 jam
 const SESSION_IDLE_TIMEOUT = 1800;  // Auto-logout bila idle (detik) = 30 menit
 
