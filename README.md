@@ -1,16 +1,8 @@
 ﻿OIT DAP, DAH KELAR NIH BAGIAN GW. (KEKNYA)
 
-# 🐙 FlacTopus AI - Teman Belajar Pintar
-
-Selamat datang di **FlacTopus AI**! Aplikasi ini merupakan bentuk evolusi (re-write total) dari project jadul kita (Project_lomba-eksperiment). 
-
-Dulu, sistemnya masih kaku dan tradisional. Sekarang, kita bawa pengalaman belajar ke level *Next-Gen* dengan gaya **Skill Tree** (kayak di game RPG), **Socratic AI Tutor**, dan **Boss Fight Mode**!
-
----
-
 ## 📂 Struktur Project
 
-`	ext
+```text
 FlacTopus/
 ├── frontend/                 # Aplikasi React (Vite) - Frontend interaktif
 │   ├── public/               # Aset publik statis (favicon, Rive animasi)
@@ -33,13 +25,13 @@ FlacTopus/
 ├── storage/                  # Folder penyimpanan internal server
 │   └── ruangan/              # Menyimpan file .json silabus per kelas
 └── README.md                 # Dokumentasi project ini
-`
+```
 
 ---
 
 ## Apa Aja yang Baru?
 
-Perubahan dari Project_lomba-eksperiment ke versi FlacTopus ini sangat masif. Untuk mempermudah pemahaman, perubahan dibagi menjadi **Garis Besar (Utama)** dan **Fitur Rinci (Lanjutan)**.
+perubahan dibagi menjadi **Garis Besar (Utama)** dan **Fitur Rinci (Lanjutan)**.
 
 ### 📌 Perubahan Utama (Garis Besar)
 
@@ -70,12 +62,18 @@ Bagian ini mencakup perombakan besar-besaran dan detail fitur yang telah kita ba
 *   **Visual Builder (Skill Tree) Lanjutan:**
     *   **Undo & Redo:** Keamanan penuh saat mengedit kurikulum. Guru bisa menekan tombol *Undo/Redo* untuk membatalkan perubahan node/garis.
     *   **Syllabus Explorer:** Modal eksplorasi interaktif dari menu Analitik yang memungkinkan Guru melakukan *Zoom & Edit* langsung ke node (materi) spesifik di Visual Builder.
-*   **Class Analytics (Dashboard Guru):** 
+*   **Class Analytics & Anti-Cheat (Dashboard Guru):** 
     *   Dashboard analitik canggih yang secara cerdas **mengecualikan** data dari aktivitas non-akademik (seperti *Ice Breaking*) agar grafik nilai kelas dan "Materi Tersulit" (*Hardest Nodes*) tetap akurat.
+    *   Sistem **Deteksi Nyotek (Anti-Cheat)** yang otomatis merekam dan melaporkan ke guru jika murid terdeteksi berpindah *tab* atau keluar dari aplikasi saat kuis berlangsung.
+*   **Pembaruan Library & Clean Code:** 
+    *   Membuang library usang yang berat (`tsParticles`, `htmx`, `Bootstrap`) dan beralih ke ekosistem *modern-lightweight* (`canvas-confetti` untuk animasi selebrasi, `framer-motion` untuk transisi UI).
+    *   Seluruh file *testing*, skrip *debugging* sisa, dan *comment* bawaan AI yang "puitis" telah **dihapus total**. Kode murni profesional dan mudah dibaca.
+    *   Menerapkan *UNIQUE constraint* di sisi *database* (`quiz_attempts`) untuk menangkal eksploitasi nilai (*spam submit*) dari pihak murid.
 
 
+  
+Dan masih banyak lagi, nanti lu tanya aja seputar fiturnya.
 
-Dan masih banyak lagi, nanti lu tanya ae ke gw dap setiap fitur baru cara dan cara kerjanya.
 
 
 ---
@@ -84,22 +82,18 @@ Dan masih banyak lagi, nanti lu tanya ae ke gw dap setiap fitur baru cara dan ca
 
 Sistem kita memadukan kecepatan **MySQL** dan fleksibilitas **JSON**.
 
-*   **MySQL (project_lomba)**: 
-    *   users: Menyimpan data akun inti.
-    *   
-uangan: Entitas kelas virtual (punya kode unik 6 karakter, tema warna).
-    *   class_members: Relasi murid dan ruangan (punya *role* khusus seperti dmin untuk Ketua Kelas).
-    *   quiz_attempts: Menyimpan nilai murid. **Penting:** Ada *UNIQUE constraint* (
-uangan_id, user_id, 
-ode_id) sebagai proteksi Anti-Spam (satu murid cuma bisa *submit* satu nilai valid per soal).
-*   **JSON (storage/ruangan/ atau 
-uang/)**:
+*   **MySQL (`project_lomba`)**: 
+    *   `users`: Menyimpan data akun inti.
+    *   `ruangan`: Entitas kelas virtual (punya kode unik 6 karakter, tema warna).
+    *   `class_members`: Relasi murid dan ruangan (punya *role* khusus seperti `admin` untuk Ketua Kelas).
+    *   `quiz_attempts`: Menyimpan nilai murid. **Penting:** Ada *UNIQUE constraint* (`ruangan_id`, `user_id`, `node_id`) sebagai proteksi Anti-Spam (satu murid cuma bisa *submit* satu nilai valid per soal).
+*   **JSON (`storage/ruangan/` atau `ruang/`)**:
     *   Kita **TIDAK** menyimpan struktur *Skill Tree* / Silabus di SQL karena strukturnya (*nodes & edges*) terlalu rumit untuk tabel relasional. 
-    *   Sebagai gantinya, silabus disimpan utuh sebagai file .json. *Database* hanya menyimpan ID/pointer ke file tersebut. Jauh lebih cepat dan gampang di-*parse* oleh React Flow!
+    *   Sebagai gantinya, silabus disimpan utuh sebagai file `.json`. *Database* hanya menyimpan ID/pointer ke file tersebut. Jauh lebih cepat dan gampang di-*parse* oleh React Flow!
 
 ---
 
-## 🎭 Role Based Access Control (RBAC)
+## Role Based Access Control (RBAC)
 
 Akses diproteksi ketat baik di level UI (React Router) maupun di level API (PHP Session).
 
@@ -108,42 +102,36 @@ Akses diproteksi ketat baik di level UI (React Router) maupun di level API (PHP 
 | **Guest** | Cuma bisa akses Landing Page, Login, dan Register. |
 | **Student (Murid)** | Bisa join ruangan pakai kode, buka *Skill Tree*, ngerjain kuis, dan chat AI. |
 | **Teacher (Guru)** | Mengelola kelas, akses *Visual Builder*, mantau *Class Analytics*. |
-| **Admin (Kepsek)** | Akses tak terbatas ke seluruh sistem (dibuat manual via schema.sql). |
+| **Admin (Kepsek)** | Akses tak terbatas ke seluruh sistem (dibuat manual via `schema.sql`). |
 
-*(Di dalam tabel class_members juga ada sub-role **Ketua Kelas / Admin Ruangan** buat ngebantu Guru ngelola kelas).*
+*(Di dalam tabel `class_members` juga ada sub-role **Ketua Kelas / Admin Ruangan** buat ngebantu Guru ngelola kelas).*
 
 ---
 
 ## Cara Menjalankan
 
-Gak suka ribet pakai Node.js buat *running server* tiap hari? Santai, arsitektur ini dirancang biar lu tetep bisa nikmatin ekosistem Apache/XAMPP favorit lu!
-
 ### Langkah 1: Persiapan Database
 1. Buka XAMPP, nyalakan **Apache** dan **MySQL**.
-2. Buka phpMyAdmin, buat *database* baru (atau langsung *Import* file db/schema.sql).
-3. Pastikan folder *project* ini ada di htdocs/FlacTopus.
+2. Buka phpMyAdmin, buat *database* baru (atau langsung *Import* file `db/schema.sql`).
+3. Pastikan folder *project* ini ada di `htdocs/FlacTopus`.
 
 ### Langkah 2: Setup API Key AI
-1. Masuk ke folder rontend/.
-2. *Copy* file .env.example menjadi .env.
-3. Isi VITE_GEMINI_API_KEY dengan API Key dari Google AI Studio.
+1. Masuk ke folder `frontend/`.
+2. *Copy* file `.env.example` menjadi `.env`.
+3. Isi `VITE_GEMINI_API_KEY` dengan API Key dari Google AI Studio.
 
 ### Langkah 3: Build Frontend (Cukup Sekali!)
-Karena lu mungkin lebih suka langsung ngetes di http://localhost/FlacTopus/ tanpa harus jalanin 
-pm run dev terus-terusan, lu cuma butuh nge-*build* React-nya sekali:
+Karena lu mungkin lebih suka langsung ngetes di `http://localhost/FlacTopus/` tanpa harus jalanin `npm run dev` terus-terusan, lu cuma butuh nge-*build* React-nya sekali:
 
-`ash
+```bash
 cd frontend
 npm install
 npm run build
-`
+```
 
-Hasil *build* (file statis .js & .css serta index.html) akan otomatis diproduksi dan diatur oleh Vite. Kalau sudah di-*build*, lu bisa langsung buka browser:
-👉 **http://localhost/FlacTopus/** 
+Hasil *build* (file statis `.js` & `.css` serta `index.html`) akan otomatis diproduksi dan diatur oleh Vite. Kalau sudah di-*build*, lu bisa langsung buka browser:
+👉 **`http://localhost/FlacTopus/`** 
 
-Aplikasi bakal jalan 100% mulus (routing, API PHP, semuanya jalan sempurna via Apache).
-
-*(Opsi Dev: Kalau mau ngoding UI dan butuh Hot-Reload, baru lu pakai 
-npm run dev di folder rontend).*
+*(Opsi Dev: Kalau mau ngoding UI dan butuh Hot-Reload, baru lu pakai `npm run dev` di folder `frontend`).*
 
 ---
