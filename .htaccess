@@ -66,9 +66,9 @@
     #   ada halaman PHP dengan <script> inline, tambahkan 'unsafe-inline'
     #   atau nonce ke script-src.
     # - style: izinkan inline style (React memakai style={{}...})
-    # - connect-src: izinkan API Gemini (Socratic AI tutor)
+    # - connect-src: hanya ke server sendiri (AI diproxy lewat backend PHP)
     # - object-src none: blokir plugin (Flash, dsb)
-    Header always set Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' https://generativelanguage.googleapis.com; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'self'"
+    Header always set Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'self'"
 
     # Sembunyikan versi software (jangan bocorkan versi Apache/PHP/modul)
     Header always unset X-Powered-By
