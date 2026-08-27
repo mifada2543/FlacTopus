@@ -9,11 +9,14 @@ export default function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [isRateLimited, setIsRateLimited] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [csrfToken, setCsrfToken] = useState('');
   const [mounted, setMounted] = useState(false);
+  const [sessionChecked, setSessionChecked] = useState(false);
 
   const justRegistered = location.state?.registered === true;
+  const pendingApproval = location.state?.pending === true;
 
   useEffect(() => {
     setMounted(true);
@@ -24,11 +27,28 @@ export default function Login() {
       .then((d) => {
         if (!active) return;
         setCsrfToken(d.csrf_token || '');
-        if (d.logged_in && d.user) navigate('/classes', { replace: true });
+        if (d.logged_in && d.user) {
+          // Sudah login → langsung redirect (cegah double session)
+          navigate('/classes', { replace: true });
+          return;
+        }
+        setSessionChecked(true);
       })
-      .catch(() => {});
+      .catch(() => {
+        if (active) setSessionChecked(true);
+      });
     return () => { active = false; };
   }, [navigate]);
+
+  // Tampilkan loading selama cek session (cegah flash halaman login)
+  if (!sessionChecked) {
+    return (
+      <div className="loading-screen">
+        <div className="loading-spinner" />
+        <span>Memeriksa sesi...</span>
+      </div>
+    );
+  }
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -47,10 +67,13 @@ export default function Login() {
       });
       const data = await res.json();
       if (data.success) {
-        localStorage.setItem('currentUser', JSON.stringify(data.user));
         // Kembali ke halaman yang tadi dituju (disimpan ProtectedRoute di state.from)
         const from = location.state?.from?.pathname;
         navigate(from && from !== '/login' && from !== '/register' ? from : '/classes');
+      } else if (res.status === 429) {
+        // Rate limited — terlalu banyak percobaan gagal
+        setIsRateLimited(true);
+        setError(data.message || 'Terlalu banyak percobaan. Coba lagi nanti.');
       } else {
         setError(data.message || 'Login gagal. Coba lagi.');
       }
@@ -67,7 +90,7 @@ export default function Login() {
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'center',
-      padding: '2rem',
+      padding: 'clamp(1rem, 4vw, 2rem)',
       position: 'relative',
       overflow: 'hidden',
     }}>
@@ -80,7 +103,7 @@ export default function Login() {
         transform: mounted ? 'translateY(0)' : 'translateY(24px)',
         transition: 'all 0.6s cubic-bezier(0.16, 1, 0.3, 1)',
       }}>
-        <div className="glass-panel" style={{ padding: '2.5rem', borderRadius: '20px' }}>
+        <div className="glass-panel auth-form" style={{ padding: 'clamp(1.5rem, 5vw, 2.5rem)', borderRadius: '20px' }}>
           {/* Header */}
           <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
             <div style={{
@@ -104,7 +127,21 @@ export default function Login() {
           </div>
 
           {/* Pesan sukses registrasi */}
-          {justRegistered && (
+          {justRegistered && pendingApproval && (
+            <div style={{
+              background: 'rgba(234, 179, 8, 0.12)',
+              border: '1px solid #eab308',
+              color: '#fbbf24',
+              padding: '0.7rem 1rem',
+              borderRadius: '10px',
+              fontSize: '0.9rem',
+              marginBottom: '1.2rem',
+              textAlign: 'center',
+            }}>
+              ⏳ Registrasi berhasil! Akun Anda menunggu persetujuan admin. Anda akan bisa login setelah disetujui.
+            </div>
+          )}
+          {justRegistered && !pendingApproval && (
             <div style={{
               background: 'rgba(16, 185, 129, 0.12)',
               border: '1px solid var(--accent-green)',
@@ -121,16 +158,19 @@ export default function Login() {
 
           {/* Error */}
           {error && (
-            <div className="error-shake" style={{
-              background: 'rgba(239, 68, 68, 0.12)',
-              border: '1px solid #ef4444',
-              color: '#f87171',
+            <div className={isRateLimited ? '' : 'error-shake'} style={{
+              background: isRateLimited ? 'rgba(234, 179, 8, 0.12)' : 'rgba(239, 68, 68, 0.12)',
+              border: `1px solid ${isRateLimited ? '#eab308' : '#ef4444'}`,
+              color: isRateLimited ? '#fbbf24' : '#f87171',
               padding: '0.7rem 1rem',
               borderRadius: '10px',
               fontSize: '0.9rem',
               marginBottom: '1.2rem',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.5rem',
             }}>
-              {error}
+              {isRateLimited ? '🔒 ' : '⚠️ '}{error}
             </div>
           )}
 
@@ -195,7 +235,7 @@ export default function Login() {
 
             <button
               type="submit"
-              disabled={isLoading || !csrfToken}
+              disabled={isLoading || isRateLimited || !csrfToken}
               className="btn-primary"
               style={{
                 width: '100%',
@@ -229,8 +269,8 @@ export default function Login() {
           </p>
         </div>
 
-        <p style={{ textAlign: 'center', color: 'var(--text-muted)', marginTop: '1.2rem', fontSize: '0.8rem', opacity: 0.6 }}>
-          Akun demo: guru@example.com / password123
+        <p style={{ textAlign: 'center', color: 'var(--text-muted)', marginTop: '1.2rem', fontSize: '0.75rem', opacity: 0.5 }}>
+          Akun demo tersedia di database (hubungi admin)
         </p>
       </div>
 

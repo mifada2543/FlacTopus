@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { Leaf, User, Mail, Lock, UserPlus, Loader2, GraduationCap } from 'lucide-react';
+import { Leaf, User, Mail, Lock, UserPlus, Loader2 } from 'lucide-react';
 import { AUTH_API } from '../utils/api';
 
 export default function Register() {
@@ -9,11 +9,13 @@ export default function Register() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
-  const [role, setRole] = useState('student');
+  const role = 'student'; // Selalu murid — guru ditambahkan admin
   const [error, setError] = useState('');
+  const [isRateLimited, setIsRateLimited] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [csrfToken, setCsrfToken] = useState('');
   const [mounted, setMounted] = useState(false);
+  const [sessionChecked, setSessionChecked] = useState(false);
 
   useEffect(() => {
     setMounted(true);
@@ -23,11 +25,28 @@ export default function Register() {
       .then((d) => {
         if (!active) return;
         setCsrfToken(d.csrf_token || '');
-        if (d.logged_in && d.user) navigate('/classes', { replace: true });
+        if (d.logged_in && d.user) {
+          // Sudah login → langsung redirect (cegah double session)
+          navigate('/classes', { replace: true });
+          return;
+        }
+        setSessionChecked(true);
       })
-      .catch(() => {});
+      .catch(() => {
+        if (active) setSessionChecked(true);
+      });
     return () => { active = false; };
   }, [navigate]);
+
+  // Tampilkan loading selama cek session (cegah flash halaman register)
+  if (!sessionChecked) {
+    return (
+      <div className="loading-screen">
+        <div className="loading-spinner" />
+        <span>Memeriksa sesi...</span>
+      </div>
+    );
+  }
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -47,7 +66,10 @@ export default function Register() {
       });
       const data = await res.json();
       if (data.success) {
-        navigate('/login', { state: { registered: true } });
+        navigate('/login', { state: { registered: true, pending: true } });
+      } else if (res.status === 429) {
+        setIsRateLimited(true);
+        setError(data.message || 'Terlalu banyak percobaan. Coba lagi nanti.');
       } else {
         setError(data.message || 'Registrasi gagal.');
       }
@@ -78,7 +100,7 @@ export default function Register() {
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'center',
-      padding: '2rem',
+      padding: 'clamp(1rem, 4vw, 2rem)',
       position: 'relative',
       overflow: 'hidden',
     }}>
@@ -91,7 +113,7 @@ export default function Register() {
         transform: mounted ? 'translateY(0)' : 'translateY(24px)',
         transition: 'all 0.6s cubic-bezier(0.16, 1, 0.3, 1)',
       }}>
-        <div className="glass-panel" style={{ padding: '2.5rem', borderRadius: '20px' }}>
+        <div className="glass-panel auth-form" style={{ padding: 'clamp(1.5rem, 5vw, 2.5rem)', borderRadius: '20px' }}>
           <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
             <div style={{
               display: 'inline-flex',
@@ -114,16 +136,19 @@ export default function Register() {
           </div>
 
           {error && (
-            <div className="error-shake" style={{
-              background: 'rgba(239, 68, 68, 0.12)',
-              border: '1px solid #ef4444',
-              color: '#f87171',
+            <div className={isRateLimited ? '' : 'error-shake'} style={{
+              background: isRateLimited ? 'rgba(234, 179, 8, 0.12)' : 'rgba(239, 68, 68, 0.12)',
+              border: `1px solid ${isRateLimited ? '#eab308' : '#ef4444'}`,
+              color: isRateLimited ? '#fbbf24' : '#f87171',
               padding: '0.7rem 1rem',
               borderRadius: '10px',
               fontSize: '0.9rem',
               marginBottom: '1.2rem',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.5rem',
             }}>
-              {error}
+              {isRateLimited ? '🔒 ' : '⚠️ '}{error}
             </div>
           )}
 
@@ -168,45 +193,13 @@ export default function Register() {
               </div>
             </div>
 
-            <div style={{ marginBottom: '1.6rem' }}>
-              <label style={{ display: 'block', marginBottom: '0.6rem', color: 'var(--text-main)', fontSize: '0.85rem', fontWeight: 600 }}>Daftar sebagai</label>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.7rem' }}>
-                {[
-                  { value: 'student', label: 'Murid', icon: <User size={18} /> },
-                  { value: 'teacher', label: 'Guru', icon: <GraduationCap size={18} /> },
-                ].map((opt) => {
-                  const active = role === opt.value;
-                  return (
-                    <button
-                      key={opt.value}
-                      type="button"
-                      onClick={() => setRole(opt.value)}
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        gap: '0.5rem',
-                        padding: '0.8rem',
-                        borderRadius: '12px',
-                        cursor: 'pointer',
-                        fontWeight: 'bold',
-                        fontSize: '0.95rem',
-                        background: active ? 'var(--accent-green)' : 'transparent',
-                        color: active ? '#000' : 'var(--text-main)',
-                        border: `2px solid ${active ? 'var(--accent-green)' : 'var(--border-color)'}`,
-                        transition: 'all 0.2s',
-                      }}
-                    >
-                      {opt.icon} {opt.label}
-                    </button>
-                  );
-                })}
-              </div>
+            <div style={{ marginBottom: '1.6rem', padding: '0.8rem 1rem', background: 'rgba(16, 185, 129, 0.08)', border: '1px solid rgba(16, 185, 129, 0.2)', borderRadius: '10px', fontSize: '0.85rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              📚 Mendaftar sebagai <strong style={{ color: 'var(--accent-green)' }}>Murid</strong>
             </div>
 
             <button
               type="submit"
-              disabled={isLoading || !csrfToken}
+              disabled={isLoading || isRateLimited || !csrfToken}
               className="btn-primary"
               style={{
                 width: '100%',
