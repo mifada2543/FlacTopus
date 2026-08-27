@@ -1,127 +1,250 @@
-﻿OIT DAP, DAH KELAR NIH BAGIAN GW. (KEKNYA)
+# 🐙 FlacTopus AI
 
-## 📂 Struktur Project
+> **Sistem Pendidikan Adaptif Berbasis Skill Tree dengan AI Socratic Tutor**
+>
+> Platform manajemen kelas & kurikulum interaktif yang memetakan pemahaman murid layaknya *Skill Tree* dalam game RPG. Guru membangun rute belajar secara visual, murid menjelajahi materi seperti quest, dan AI Gemini membimbing lewat dialog sokratik — bukan sekadar memberi jawaban.
 
-```text
+![License](https://img.shields.io/badge/license-MIT-green)
+![React](https://img.shields.io/badge/React-19-61DAFB?logo=react)
+![Vite](https://img.shields.io/badge/Vite-8-646CFF?logo=vite)
+![PHP](https://img.shields.io/badge/PHP-8-777BB4?logo=php)
+![MySQL](https://img.shields.io/badge/MySQL-MariaDB-4479A1?logo=mysql)
+
+---
+
+## 📌 Daftar Isi
+
+- [Tentang Project](#-tentang-project)
+- [Masalah yang Dijawab](#-masalah-yang-dijawab)
+- [Fitur Utama](#-fitur-utama)
+- [Teknologi yang Digunakan](#-teknologi-yang-digunakan)
+- [Arsitektur Sistem](#-arsitektur-sistem)
+- [Struktur Project](#-struktur-project)
+- [Prasyarat](#-prasyarat)
+- [Cara Instalasi](#-cara-instalasi)
+- [Cara Penggunaan](#-cara-penggunaan)
+- [Sistem Keamanan](#-sistem-keamanan)
+- [RBAC (Role-Based Access Control)](#-rbac-role-based-access-control)
+- [Database Schema](#-database-schema)
+- [API Endpoints](#-api-endpoints)
+- [Kontribusi](#-kontribusi)
+
+---
+
+## 🌿 Tentang Project
+
+FlacTopus AI adalah **sistem pendidikan adaptif bertenaga AI** yang dikembangkan untuk kompetisi **OSCAR 3.0 x GDGOC STT NF — Web Development Competition**.
+
+Project ini menjawab tantangan dalam pendidikan konvensional di mana:
+- Guru kesulitan memetakan pemahaman **individual** setiap murid
+- Materi belajar bersifat **statis** dan tidak adaptif
+- Tidak ada mekanisme evaluasi **berkelanjutan** yang interaktif
+- Proses ujian terasa **membosankan** dan tidak memotivasi
+
+FlacTopus mengubah paradigma tersebut dengan menghadirkan **Skill Tree visual** (seperti game RPG), **AI Socratic Tutor** yang membimbing lewat dialog, dan **sistem gamifikasi** yang membuat proses belajar jadi menyenangkan.
+
+---
+
+## 🎯 Masalah yang Dijawab
+
+| Masalah | Solusi FlacTopus |
+| --- | --- |
+| Guru sulit memetakan pemahaman individual murid | **Skill Tree visual** — guru melihat progress tiap node materi |
+| Belajar tidak adaptif (satu materi untuk semua) | **AI Tutor Gemini** mendeteksi kesalahan & menjelaskan dengan pendekatan berbeda per murid |
+| Materi statis, tidak interaktif | **Visual Builder** drag-and-drop untuk membangun skill tree sendiri |
+| Tidak ada mekanisme evaluasi berkelanjutan | **Kuis interaktif** (pilihan ganda + isi rumpang) terintegrasi di setiap node |
+| Ujian terasa membosankan | **Boss Fight Mode** bergaya RPG dengan HP, efek visual, dan transisi sinematik |
+
+---
+
+## ✨ Fitur Utama
+
+### 🌳 Skill Tree Visual (ReactFlow)
+Guru membangun kurikulum sebagai graf nodes & edges dengan **drag-and-drop**. Murid melihat rute belajar sebagai peta interaktif — node terkunci → in-progress → completed. Progress disimpan sebagai file JSON per ruangan.
+
+### 🤖 Socratic AI Tutor (Google Gemini)
+Saat murid salah menjawab, AI **tidak langsung memberi jawaban**. Sebaliknya, AI bertanya balik secara dialogis: *"Mengapa kamu memilih X? Apa yang kamu pahami dari konsep ini?"* — menuntun murid menemukan jawaban sendiri melalui pendekatan Socrates.
+
+### 🎮 Gamifikasi & Boss Fight Mode
+Kuis memiliki mode **Boss Fight** bergaya RPG lengkap dengan:
+- Health Point (HP) Boss dan Murid
+- Efek visual saat jawaban benar/salah
+- Transisi sinematik dan musik latar épik
+- Suara retro 8-bit (Web Audio API) untuk respons real-time
+
+### 🏫 Sistem Ruangan Kelas
+- Guru buat ruangan → dapat **kode unik 6 karakter**
+- Murid gabung pakai kode → otomatis masuk ke skill tree guru
+- **Heartbeat system** — browser mengirim sinyal tiap 3 menit
+- **Ketua Kelas** — guru bisa mengangkat murid sebagai sub-admin
+
+### 📊 Class Analytics & Anti-Cheat
+- Dashboard analitik: rata-rata nilai, partisipasi, materi tersulit
+- **Deteksi Nyontek** — otomatis merekam jika murid berpindah tab saat kuis
+- Data non-akademik (Ice Breaking) dikecualikan dari grafik
+
+### 🛡️ Panel Admin Lengkap (3 Tab)
+- **👥 Kelola User** — filter/search, approve/reject registrasi, ubah role, reset password
+- **🏠 Kelola Ruangan** — statistik real-time, detail modal, kick member
+- **📊 Activity Log** — audit trail semua aksi + auto-refresh 15 detik
+
+---
+
+## 🛠️ Teknologi yang Digunakan
+
+| Layer | Teknologi | Keterangan |
+| --- | --- | --- |
+| **Frontend** | React 19 + Vite 8 | SPA dengan React Router v7 |
+| **Visualisasi Skill Tree** | ReactFlow (@xyflow/react) | Drag-and-drop nodes & edges |
+| **Animasi** | Framer Motion + Canvas Confetti | Transisi UI & efek selebrasi |
+| **AI Tutor** | Google Gemini API | Socratic questioning approach |
+| **Backend** | PHP 8 Murni (tanpa framework) | API JSON, session-based auth |
+| **Database** | MySQL (MariaDB via XAMPP) | 7 tabel + file JSON silabus |
+| **Keamanan** | CSRF, Session Hijack Detection, Dual Rate Limiter, Activity Log | Berdasarkan referensi MEeL |
+| **Build** | Vite build → bash build.sh → XAMPP | Production-ready |
+| **Linting** | OxLint | Cepat, ringan |
+| **CI/CD** | GitHub Actions | Secret scanning |
+| **Migrasi** | db/migration.php (CLI-only) | Version-based, idempotent |
+
+---
+
+## 🏗️ Arsitektur Sistem
+
+```
+┌─────────────────────────────────────────────────────────┐
+│                    FRONTEND (React SPA)                   │
+│  React + Vite + React Router + ReactFlow                 │
+│  Pages: Landing, Login, Register, ClassDashboard,        │
+│         TeacherDashboard, StudentDashboard, Quiz,         │
+│         RoomDetail, AdminPanel (3 tabs), ErrorPage        │
+├─────────────────────────────────────────────────────────┤
+│                   BACKEND (PHP Murni)                     │
+│  API JSON: auth/*.php, ruangan.php, admin.php             │
+│  Logic: LoginRegisterLogic, RuanganLogic,                 │
+│         RateLimiter, ActivityLogger                       │
+├─────────────────────────────────────────────────────────┤
+│                     DATABASE (MySQL)                      │
+│  Tables: users, ruangan, class_members, syllabus,         │
+│          quiz_attempts, login_attempts, activity_log,     │
+│          schema_version                                   │
+│  + File JSON per ruangan di storage/ruangan/<id>.json     │
+├─────────────────────────────────────────────────────────┤
+│                    AI (Google Gemini)                      │
+│  Socratic AI Tutor — menuntun murid lewat dialog         │
+│  via frontend/src/utils/aiService.js                      │
+└─────────────────────────────────────────────────────────┘
+```
+
+**Alur Aplikasi:**
+1. **React (JSX)** menggambar semua halaman UI
+2. **PHP** berperan sebagai backend murni — mengembalikan JSON
+3. **MySQL** menyimpan data user, ruangan, & keanggotaan
+4. **File JSON** menyimpan struktur skill tree per ruangan (DB hanya pointer)
+5. **Google Gemini** menyediakan AI Socratic Tutor
+
+---
+
+## 📁 Struktur Project
+
+```
 FlacTopus/
-├── frontend/                 # Aplikasi React (Vite) - Frontend interaktif
-│   ├── public/               # Aset publik statis (favicon, Rive animasi)
+├── frontend/                      # React App (Vite)
 │   ├── src/
-│   │   ├── components/       # Komponen UI React yang dapat digunakan ulang
-│   │   ├── data/             # Data bawaan (template silabus)
-│   │   ├── hooks/            # Custom React hooks (autentikasi dll)
-│   │   ├── pages/            # Halaman utama (Landing, Dashboard, Kuis)
-│   │   ├── utils/            # Script pembantu (Koneksi AI Gemini, API handler)
-│   │   ├── App.jsx           # Rute utama aplikasi
-│   │   └── main.jsx          # Titik masuk React
-│   ├── index.html            # Kerangka dasar HTML SPA
-│   └── vite.config.js        # Konfigurasi bundler Vite
-├── backend/                  # PHP API murni
-│   └── controller/           
-│       ├── api/              # Endpoint API (kuis, ruangan, chat)
-│       └── logic/            # Logika backend utama (LoginRegister, RuanganLogic)
-├── auth/                     # Endpoint khusus autentikasi (login, register, session)
-├── db/                       # Dokumentasi skema dan migrasi database MySQL
-├── storage/                  # Folder penyimpanan internal server
-│   └── ruangan/              # Menyimpan file .json silabus per kelas
-└── README.md                 # Dokumentasi project ini
+│   │   ├── pages/                 # Landing, Login, Register, ClassDashboard,
+│   │   │                          # TeacherDashboard, StudentDashboard, Quiz,
+│   │   │                          # RoomDetail, AdminPanel, ErrorPage
+│   │   ├── components/            # ProtectedRoute (RBAC gate)
+│   │   ├── hooks/                 # useAuth (session PHP), useRoomHeartbeat
+│   │   ├── utils/                 # api.js, roles.js, aiService.js (Gemini)
+│   │   ├── data/                  # mockData.js (template silabus fallback)
+│   │   ├── App.jsx                # Route definitions + RBAC matrix
+│   │   └── index.css              # CSS variables, dark theme, responsive
+│   ├── vite.config.js             # base: '/FlacTopus/'
+│   └── .env.example               # VITE_GEMINI_API_KEY template
+├── auth/                          # PHP auth backend
+│   ├── config.php                 # DB, session config, security headers
+│   ├── auth.php                   # require_auth, session hijacking, CSRF
+│   ├── login.php                  # POST API login + dual rate limiter
+│   ├── register.php               # POST API register (status=pending)
+│   ├── session.php                # GET session check + CSRF token
+│   └── logout.php                 # POST logout + activity logging
+├── backend/controller/
+│   ├── api/
+│   │   ├── ruangan.php            # CRUD ruangan (create, join, syllabus, etc.)
+│   │   ├── admin.php              # Admin: user mgmt, room stats, activity logs
+│   │   └── quiz.php               # API kuis (submit jawaban, analytics)
+│   └── logic/
+│       ├── LoginRegisterLogic.php  # Auth business logic
+│       ├── RuanganLogic.php        # Ruangan business logic
+│       ├── RateLimiter.php         # Dual rate limiting (IP + session)
+│       └── ActivityLogger.php      # Audit trail (login, logout, admin actions)
+├── db/
+│   ├── schema.sql                 # Full DB schema (8 tabel) + demo data
+│   ├── migration.php              # CLI-only version-based migration
+│   └── README.md                  # Arsitektur data documentation
+├── storage/ruangan/               # File JSON silabus per ruangan (runtime)
+├── assets/                        # Static assets (favicon, icons)
+├── scripts/scan-secrets.sh        # Security: pre-commit secret scanning
+├── hooks/pre-commit               # Git pre-commit hook
+├── .github/workflows/             # CI: scan-secrets.yml
+├── build.sh                       # Build frontend → copy to root XAMPP
+├── source/                        # Referensi implementasi
+└── README.md                      # Dokumentasi project ini
 ```
 
 ---
 
-## Apa Aja yang Baru?
+## 📋 Prasyarat
 
-perubahan dibagi menjadi **Garis Besar (Utama)** dan **Fitur Rinci (Lanjutan)**.
+Sebelum memulai, pastikan Anda telah menginstal perangkat lunak berikut:
 
-### 📌 Perubahan Utama (Garis Besar)
-
-1. **Arsitektur Modern (React SPA + PHP API):** Kita sepenuhnya meninggalkan cara lama (PHP yang merender HTML/htmx). Sekarang aplikasi berjalan sebagai **Single Page Application (SPA)** menggunakan React (Vite) di *frontend*, sementara PHP murni bertugas sebagai penyedia JSON API di *backend*.
-2. **Visual Skill Tree (React Flow):** Manajemen kurikulum tidak lagi berbentuk tabel kaku. Guru merakit rute materi (Silabus) menggunakan *Visual Builder* berbasis *drag-and-drop*. Murid melihat rute ini sebagai Peta Belajar interaktif (dengan indikator visual untuk materi yang terkunci/terbuka).
-3. **FlacTopus AI (Dua Sisi):** Integrasi AI Gemini kini melayani dua pihak. Di sisi Guru, AI adalah asisten pintar untuk *Auto-generate* materi. Di sisi Murid, AI bertindak sebagai *Socratic Tutor* yang membimbing, bukan memberi jawaban instan.
-4. **Gamifikasi & Boss Fight Mode:** Kuis kini memiliki mode *Boss Fight* bergaya RPG lengkap dengan Health Point (HP), efek visual, dan transisi sinematik, membuat ujian terasa seperti bermain *game*.
-
-### 🔍 Fitur Rinci & Peningkatan Sistem (Lanjutan)
-
-Bagian ini mencakup perombakan besar-besaran dan detail fitur yang telah kita bangun dari awal hingga akhir:
-
-*   **Ekosistem AI Assistant yang Kokoh:**
-    *   **Teacher AI (Asisten Guru):** Mampu meng-generate kurikulum / silabus utuh hanya dari sebuah *prompt* (teks instruksi). AI secara otomatis menyusun materi, kuis, dan menghubungkannya dalam Visual Builder. Output AI mendukung *Markdown* secara penuh (termasuk *code block*).
-    *   **Student AI (Asisten Murid):** Terintegrasi di dalam kuis sebagai teman diskusi. Dilengkapi dengan **Prompt Injection Protection** untuk mencegah murid "menipu" AI agar memberikan bocoran soal, menanyakan resep makanan, atau mengeksploitasi sistem.
-*   **Audio & Sound Effect (SFX) Imersif:**
-    *   **Boss BGM:** Musik latar yang *epic* khusus saat murid memasuki mode *Boss Fight*.
-    *   **Retro SFX Real-time:** Suara *bloop*, *hit*, dan *error* bergaya retro 8-bit yang dihasilkan secara dinamis menggunakan *Web Audio API* saat murid memilih opsi jawaban kuis.
-    *   **UI SFX:** Efek suara angin (*swoosh*) saat melakukan *zoom-in* atau berpindah dari menu Analitik ke area Visual Builder.
-*   **Perombakan Total Tipe Kuis:**
-    *   **Boss Fight:** Pertarungan RPG! Memiliki indikator *HP Boss* dan *HP Murid*. Jawaban benar akan mengurangi darah Boss (dengan efek layar bergetar), jawaban salah mengurangi darah murid.
-    *   **Isi Rumpang (*Fill in the Blank*):** Mode menyusun kalimat interaktif (teks rumpang).
-    *   **Auditori:** Kuis berbasis pendengaran di mana murid harus menebak berdasarkan *sound* yang diputar (dilengkapi visual *waveform* interaktif).
-    *   **Ice Breaking:** Mode istirahat di tengah *Skill Tree*. Murid sekadar bermain tebak suara emoji/maskot ditemani alunan musik *lo-fi* (musik otomatis *fade-out* saat sesi selesai).
-*   **Manajemen Ruangan Kelas yang Fleksibel:**
-    *   **Ketua Kelas (Role Admin):** Guru kini bisa mengangkat/memilih salah satu murid untuk menjadi "Ketua Kelas" (Sub-Role Admin) yang bisa membantu mengelola kelas.
-    *   **Personalisasi & Pin:** Fitur menge-Pin (menyematkan) kelas favorit, memberikan *Mark* (tanda khusus), serta kebebasan mengubah tema warna (*Theme Color*) pada setiap kelas agar lebih unik.
-*   **Visual Builder (Skill Tree) Lanjutan:**
-    *   **Undo & Redo:** Keamanan penuh saat mengedit kurikulum. Guru bisa menekan tombol *Undo/Redo* untuk membatalkan perubahan node/garis.
-    *   **Syllabus Explorer:** Modal eksplorasi interaktif dari menu Analitik yang memungkinkan Guru melakukan *Zoom & Edit* langsung ke node (materi) spesifik di Visual Builder.
-*   **Class Analytics & Anti-Cheat (Dashboard Guru):** 
-    *   Dashboard analitik canggih yang secara cerdas **mengecualikan** data dari aktivitas non-akademik (seperti *Ice Breaking*) agar grafik nilai kelas dan "Materi Tersulit" (*Hardest Nodes*) tetap akurat.
-    *   Sistem **Deteksi Nyotek (Anti-Cheat)** yang otomatis merekam dan melaporkan ke guru jika murid terdeteksi berpindah *tab* atau keluar dari aplikasi saat kuis berlangsung.
-*   **Pembaruan Library & Clean Code:** 
-    *   Membuang library usang yang berat (`tsParticles`, `htmx`, `Bootstrap`) dan beralih ke ekosistem *modern-lightweight* (`canvas-confetti` untuk animasi selebrasi, `framer-motion` untuk transisi UI).
-    *   Seluruh file *testing*, skrip *debugging* sisa, dan *comment* bawaan AI yang "puitis" telah **dihapus total**. Kode murni profesional dan mudah dibaca.
-    *   Menerapkan *UNIQUE constraint* di sisi *database* (`quiz_attempts`) untuk menangkal eksploitasi nilai (*spam submit*) dari pihak murid.
-
-
-  
-Dan masih banyak lagi, nanti lu tanya aja seputar fiturnya.
-
-
+- **XAMPP/LAMPP** (Apache + MySQL) — [download](https://www.apachefriends.org/)
+- **Node.js v18+** — [download](https://nodejs.org/)
+- **Git** — [download](https://git-scm.com/)
 
 ---
 
-## 🗄️ Arsitektur Database & Penyimpanan
+## ⚙️ Cara Instalasi
 
-Sistem kita memadukan kecepatan **MySQL** dan fleksibilitas **JSON**.
+### 1. Klon Repositori
 
-*   **MySQL (`project_lomba`)**: 
-    *   `users`: Menyimpan data akun inti.
-    *   `ruangan`: Entitas kelas virtual (punya kode unik 6 karakter, tema warna).
-    *   `class_members`: Relasi murid dan ruangan (punya *role* khusus seperti `admin` untuk Ketua Kelas).
-    *   `quiz_attempts`: Menyimpan nilai murid. **Penting:** Ada *UNIQUE constraint* (`ruangan_id`, `user_id`, `node_id`) sebagai proteksi Anti-Spam (satu murid cuma bisa *submit* satu nilai valid per soal).
-*   **JSON (`storage/ruangan/` atau `ruang/`)**:
-    *   Kita **TIDAK** menyimpan struktur *Skill Tree* / Silabus di SQL karena strukturnya (*nodes & edges*) terlalu rumit untuk tabel relasional. 
-    *   Sebagai gantinya, silabus disimpan utuh sebagai file `.json`. *Database* hanya menyimpan ID/pointer ke file tersebut. Jauh lebih cepat dan gampang di-*parse* oleh React Flow!
+```bash
+git clone https://github.com/username/FlacTopus.git
+cd FlacTopus
+```
 
----
+### 2. Pindahkan ke XAMPP htdocs
 
-## Role Based Access Control (RBAC)
+```bash
+# Linux/Mac
+cp -r . /opt/lampp/htdocs/FlacTopus
 
-Akses diproteksi ketat baik di level UI (React Router) maupun di level API (PHP Session).
+# Windows (XAMPP)
+# Copy folder ke C:\xampp\htdocs\FlacTopus
+```
 
-| Role (User) | Hak Akses |
-| :--- | :--- |
-| **Guest** | Cuma bisa akses Landing Page, Login, dan Register. |
-| **Student (Murid)** | Bisa join ruangan pakai kode, buka *Skill Tree*, ngerjain kuis, dan chat AI. |
-| **Teacher (Guru)** | Mengelola kelas, akses *Visual Builder*, mantau *Class Analytics*. |
-| **Admin (Kepsek)** | Akses tak terbatas ke seluruh sistem (dibuat manual via `schema.sql`). |
+### 3. Setup Database
 
-*(Di dalam tabel `class_members` juga ada sub-role **Ketua Kelas / Admin Ruangan** buat ngebantu Guru ngelola kelas).*
+```bash
+# Jalankan migrasi (CLI-only, otomatis buat tabel + data demo)
+php db/migration.php
+```
 
----
+Atau manual via phpMyAdmin:
+- Buka `http://localhost/phpmyadmin`
+- Import `db/schema.sql`
 
-## Cara Menjalankan
+### 4. Setup API Key AI (Opsional)
 
-### Langkah 1: Persiapan Database
-1. Buka XAMPP, nyalakan **Apache** dan **MySQL**.
-2. Buka phpMyAdmin, buat *database* baru (atau langsung *Import* file `db/schema.sql`).
-3. Pastikan folder *project* ini ada di `htdocs/FlacTopus`.
+```bash
+cd frontend
+cp .env.example .env
+# Isi VITE_GEMINI_API_KEY dengan key dari https://aistudio.google.com/apikey
+```
 
-### Langkah 2: Setup API Key AI
-1. Masuk ke folder `frontend/`.
-2. *Copy* file `.env.example` menjadi `.env`.
-3. Isi `VITE_GEMINI_API_KEY` dengan API Key dari Google AI Studio.
+> ⚠️ Tanpa API Key, aplikasi tetap berjalan dalam *mode simulasi* (AI tutor memberi respons placeholder).
 
-### Langkah 3: Build Frontend (Cukup Sekali!)
-Karena lu mungkin lebih suka langsung ngetes di `http://localhost/FlacTopus/` tanpa harus jalanin `npm run dev` terus-terusan, lu cuma butuh nge-*build* React-nya sekali:
+### 5. Build Frontend
 
 ```bash
 cd frontend
@@ -129,9 +252,271 @@ npm install
 npm run build
 ```
 
-Hasil *build* (file statis `.js` & `.css` serta `index.html`) akan otomatis diproduksi dan diatur oleh Vite. Kalau sudah di-*build*, lu bisa langsung buka browser:
-👉 **`http://localhost/FlacTopus/`** 
+Atau gunakan script build:
 
-*(Opsi Dev: Kalau mau ngoding UI dan butuh Hot-Reload, baru lu pakai `npm run dev` di folder `frontend`).*
+```bash
+bash build.sh
+```
 
 ---
+
+## 🚀 Cara Penggunaan
+
+### Production Mode
+
+```bash
+# Pastikan Apache & MySQL sudah menyala
+# Buka browser:
+http://localhost/FlacTopus/
+```
+
+### Development Mode (Hot Reload)
+
+```bash
+cd frontend
+npm install
+npm run dev
+# Buka http://localhost:5173/FlacTopus/
+```
+
+> ℹ️ Di dev mode, panggilan auth (`/FlacTopus/auth/*`) di-proxy ke Apache.
+
+### Akun Demo
+
+| Akun | Email | Password | Role | Status |
+| --- | --- | --- | --- | --- |
+| Admin | `admin@example.com` | `password123` | admin | active |
+| Guru | `guru@example.com` | `password123` | teacher | active |
+| Murid | `murid@example.com` | `password123` | student | active |
+
+---
+
+## 🔐 Sistem Keamanan
+
+Keamanan dibangun berdasarkan referensi project **MEeL** dan diimplementasikan secara menyeluruh:
+
+### 1. Session Hijacking Detection
+- Kolom `last_session_id` di tabel `users`
+- Setiap request dicek → jika session ID berbeda → session dihancurkan otomatis
+
+### 2. Dual Rate Limiting (IP + Session)
+
+| Context | Maks Percobaan | Jendela Waktu | Keterangan |
+| --- | --- | --- | --- |
+| Login | 5 per IP | 15 menit | Anti brute force password |
+| Register | 3 per IP | 1 jam | Anti spam akun |
+
+- **Session-based:** `$_SESSION['login_fail_count']` — lock 5 menit setelah 5 gagal
+- **IP-based:** Tabel `login_attempts` — track semua percobaan
+- **Loopback exemption:** Localhost bebas rate limit untuk development
+
+### 3. Activity Logger (Audit Trail)
+Semua aktivitas dicatat ke tabel `activity_log`: login, logout, register, approve, reject, change_role, delete_user, reset_password, rate_limited.
+
+### 4. Secure Cookie
+- `httponly = true` → JavaScript tidak bisa baca
+- `samesite = 'Lax'` → cookie tidak dikirim saat cross-site
+- `secure = dynamic` → otomatis `true` jika HTTPS
+
+### 5. Security Headers
+
+| Header | Fungsi |
+| --- | --- |
+| `X-Content-Type-Options: nosniff` | Cegah MIME sniffing |
+| `X-Frame-Options: DENY` | Cegah clickjacking |
+| `Referrer-Policy: strict-origin-when-cross-origin` | Kontrol referrer |
+| `Permissions-Policy` | Blokir kamera, mikrofon, lokasi |
+| `Cross-Origin-Opener-Policy: same-origin` | Isolasi origin |
+
+### 6. User Approval Workflow
+- Register → status `pending` → admin approve → status `active`
+- User belum bisa login selama status `pending`
+
+### 7. Input Validation & Protection
+- Password: Bcrypt (`password_hash()` + `password_verify()`)
+- CSRF: Token wajib untuk semua POST request (`X-CSRF-Token` header)
+- SQL Injection: Prepared statements (PDO)
+- Register: Role di-override server-side (selalu `student`)
+
+---
+
+## 👥 RBAC (Role-Based Access Control)
+
+| Role | Deskripsi | Akses |
+| --- | --- | --- |
+| `guest` | Belum login | Landing page, login, register |
+| `student` | Murid terdaftar (aktif) | Kelas yang diikuti, belajar, kuis |
+| `teacher` | Guru terdaftar (aktif) | Semua akses student + buat/hapus ruangan, edit silabus |
+| `admin` | Administrator | **Semua akses** + panel admin (user + ruangan + activity log) |
+
+### Flow Autentikasi
+
+1. User buka app → status `guest`
+2. Register → **selalu role `student`** → status `pending`
+3. Admin approve → status `active`
+4. Login → session PHP dibuat (cookie `FlacTopus`, httponly, 2 jam lifetime)
+5. **Session hijacking check** → setiap request cek `session_id()` di DB
+6. React cek status via `auth/session.php` → tampilkan UI sesuai role
+7. Idle 30 menit → auto-logout
+8. **Double session prevention** → user sudah login → redirect ke `/classes`
+
+---
+
+## 🗃️ Database Schema
+
+### Tabel `users`
+| Kolom | Tipe | Keterangan |
+| --- | --- | --- |
+| `id` | INT UNSIGNED PK | Auto increment |
+| `name` | VARCHAR(100) | Nama lengkap |
+| `email` | VARCHAR(150) UNIQUE | Dipakai login |
+| `password_hash` | VARCHAR(255) | Bcrypt |
+| `role` | ENUM('student','teacher','admin') | Default: 'student' |
+| `status` | ENUM('pending','active','rejected') | Default: 'pending' |
+| `last_session_id` | VARCHAR(128) | Session hijacking detection |
+| `created_at` | TIMESTAMP | Auto |
+
+### Tabel `ruangan`
+| Kolom | Tipe | Keterangan |
+| --- | --- | --- |
+| `id` | INT UNSIGNED PK | Auto increment |
+| `nama` | VARCHAR(150) | Nama ruangan/mapel |
+| `kode_ruangan` | CHAR(6) UNIQUE | Kode join murid |
+| `theme_color` | VARCHAR(20) | Tema warna UI |
+| `user_id` | INT UNSIGNED FK | Guru pembuat (CASCADE) |
+| `created_at` | TIMESTAMP | Auto |
+| `last_active_at` | TIMESTAMP | Reset timer 2 jam |
+
+### Tabel `class_members`
+| Kolom | Tipe | Keterangan |
+| --- | --- | --- |
+| `id` | INT UNSIGNED PK | Auto increment |
+| `ruangan_id` | INT UNSIGNED FK | CASCADE |
+| `user_id` | INT UNSIGNED FK | CASCADE |
+| `role` | ENUM('member','admin') | Admin = Ketua Kelas |
+| `joined_at` | TIMESTAMP | Auto |
+| `last_seen_at` | TIMESTAMP | Heartbeat terakhir |
+| `is_marked` | BOOLEAN | Tanda khusus murid |
+| `pinned_at` | TIMESTAMP | Waktu dipin |
+
+### Tabel `quiz_attempts`
+| Kolom | Tipe | Keterangan |
+| --- | --- | --- |
+| `id` | INT UNSIGNED PK | Auto increment |
+| `ruangan_id` | INT UNSIGNED FK | Kelas tempat kuis |
+| `user_id` | INT UNSIGNED FK | Murid yang mengerjakan |
+| `node_id` | VARCHAR(100) | ID node Skill Tree |
+| `node_label` | VARCHAR(200) | Judul node |
+| `score` | TINYINT UNSIGNED | Nilai 0-100 |
+| `total_questions` | TINYINT UNSIGNED | Total soal |
+| `correct_answers` | TINYINT UNSIGNED | Jawaban benar |
+| `wrong_answers` | TEXT NULL | JSON pertanyaan salah |
+| `created_at` | TIMESTAMP | Auto |
+
+### Tabel `login_attempts` | `activity_log` | `schema_version`
+Tabel pendukung untuk rate limiting, audit trail, dan migrasi.
+
+> **Catatan desain:** Isi skill tree (nodes/edges) disimpan sebagai **file JSON per ruangan** di `storage/ruangan/`, bukan di kolom DB. DB hanya menyimpan pointer kecil.
+
+---
+
+## 🔧 API Endpoints
+
+### Auth (`auth/*.php`)
+| Endpoint | Method | Deskripsi |
+| --- | --- | --- |
+| `auth/session.php` | GET | Cek status login + ambil CSRF token |
+| `auth/login.php` | POST | Login + dual rate limiter |
+| `auth/register.php` | POST | Register → status=pending |
+| `auth/logout.php` | POST | Logout + activity logging |
+
+### Ruangan (`backend/controller/api/ruangan.php`)
+| Aksi | Method | Role | Deskripsi |
+| --- | --- | --- | --- |
+| `list` | GET | Semua (login) | Daftar ruangan |
+| `create` | POST | teacher/admin | Buat ruangan baru |
+| `join` | POST | student/admin | Gabung via kode 6 karakter |
+| `delete` | POST | pemilik/admin | Hapus ruangan permanen |
+| `rename` | POST | pemilik/admin | Ubah nama ruangan |
+| `kick` | POST | pemilik/admin | Keluarkan murid |
+| `syllabus` | GET/POST | anggota/pemilik | Baca/simpan skill tree |
+| `heartbeat` | POST | anggota | Keep-alive |
+
+### Admin (`backend/controller/api/admin.php`)
+| Aksi | Method | Role | Deskripsi |
+| --- | --- | --- | --- |
+| `list` | GET | admin | Daftar semua user + filter |
+| `stats` | GET | admin | Statistik user per role & status |
+| `room_stats` | GET | admin | Statistik ruangan real-time |
+| `approve` | POST | admin | Setujui user pending |
+| `reject` | POST | admin | Tolak user pending |
+| `change_role` | POST | admin | Ubah role user |
+| `delete` | POST | admin | Hapus user permanen |
+| `reset_password` | POST | admin | Reset password user |
+| `activity_logs` | GET | admin | Audit trail + filter + pagination |
+| `activity_stats` | GET | admin | Statistik activity log |
+| `kick` | POST | admin | Keluarkan anggota dari ruangan |
+
+---
+
+## 📱 Responsive Design
+
+| Breakpoint | Perubahan |
+| --- | --- |
+| ≤ 480px | Glass panel padding kompak, auth form 1 kolom |
+| ≤ 640px | Header stack vertikal, stats grid 2 kolom |
+| ≤ 768px | Side-panel full-width, quiz 1 kolom, admin tabs scroll |
+| Touch devices | Semua tombol/input min-height 44px |
+
+---
+
+## 🔄 Database Migration
+
+```bash
+# Jalankan migrasi (CLI-only)
+php db/migration.php
+
+# Output:
+# ✅ Database project_lomba (MySQL)
+# 📋 Migrasi v1: Tabel users, ruangan, class_members, syllabus
+# 📋 Migrasi v2: Tabel login_attempts
+# 📋 Migrasi v3: Tabel activity_log
+# ✅ Database sudah versi terbaru (v3).
+```
+
+| Fitur | Keterangan |
+| --- | --- |
+| CLI Only | `PHP_SAPI !== 'cli'` → 403 Forbidden di browser |
+| Version-based | Tabel `schema_version` lacak versi |
+| Idempotent | Bisa dijalankan berulang kali tanpa error |
+| Safe | Tidak DROP/DELETE data yang ada |
+
+---
+
+## 🤝 Kontribusi
+
+Kontribusi selalu terbuka! Silakan ikuti langkah berikut:
+
+1. **Fork** repositori ini
+2. Buat branch fitur baru: `git checkout -b fitur-baru`
+3. Commit perubahan: `git commit -m 'Menambahkan fitur baru'`
+4. Push ke branch: `git push origin fitur-baru`
+5. Buat **Pull Request**
+
+> ⚠️ Pastikan `npm run lint` (oxlint) tidak mengembalikan error sebelum submit PR.
+
+---
+
+## 📝 Catatan Teknis
+
+- **Build workflow:** `bash build.sh` → Vite build → copy `index.html` + `node-assets/` ke root → XAMPP serve
+- **Root `index.html` & `node-assets/`** adalah artefak build (di-gitignore) — sumber selalu di `frontend/`
+- **Storage silabus:** File JSON di `storage/ruangan/<id>.json` (di-deny .htaccess)
+- **AI Key:** `VITE_GEMINI_API_KEY` di `frontend/.env` — inlined ke bundle saat build
+- **Password:** Semua di-hash bcrypt; demo password = `password123`
+- **Timezone:** MySQL timezone = WIB (+07:00)
+- **Register:** Selalu role `student` — guru/admin ditambahkan via Panel Admin
+
+---
+
+*Project ini dikembangkan untuk kompetisi **OSCAR 3.0 Web Development Competition** oleh tim yang beranggotakan siswa SMA/SMK se-JABODETABEK.*
