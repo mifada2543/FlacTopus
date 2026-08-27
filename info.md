@@ -140,7 +140,7 @@ Project_lomba/
 1. User buka app → status `guest` (bisa lihat landing, login, register)
 2. Register → **selalu role `student`** (opsi guru dihapus) → status `pending`
 3. Admin approve → status `active` (bisa login)
-4. Login → session PHP dibuat (`PLomba` cookie, httponly, secure, 2 jam lifetime)
+4. Login → session PHP dibuat (`FlacTopus` cookie, httponly, secure, 2 jam lifetime)
 5. **Session hijacking check** → setiap request cek `session_id()` di DB
 6. React cek status via `auth/session.php` → tampilkan UI sesuai role
 7. Idle 30 menit → auto-logout
@@ -499,3 +499,76 @@ bash build.sh
 ---
 
 *Project ini dikembangkan untuk kompetisi OSCAR 3.0 Web Development Competition oleh tim yang beranggotakan siswa SMA/SMK se-JABODETABEK.*
+
+---
+
+## 📝 Daftar File yang Diubah (Sesi 27 Agustus 2026)
+
+### 🔐 Backend (PHP)
+| File | Status | Perubahan |
+| --- | --- | --- |
+| `auth/config.php` | ✏️ Edit | `BASE_URL` → `/FlacTopus`, `SESSION_NAME` → `FlacTopus` |
+| `auth/config.example.php` | ✏️ Edit | `SESSION_NAME` → `FlacTopus` |
+| `auth/auth.php` | ✏️ Edit | Session hijacking detection di `require_auth_json()` |
+| `auth/login.php` | ✏️ Edit | Dual rate limiter + activity logger + session ID save |
+| `auth/register.php` | ✏️ Edit | Rate limiter + role=student + status=pending |
+| `backend/controller/logic/LoginRegisterLogic.php` | ✏️ Edit | Register → `status='pending'` + login cek status |
+| `backend/controller/logic/RuanganLogic.php` | ✏️ Edit | RBAC: `isOwnerOrSystemAdmin()` — guru hanya aksi di ruangan sendiri |
+| `backend/controller/logic/RateLimiter.php` | 🆕 Baru | Rate limiter IP-based (login 5/15menit, register 3/1jam) |
+| `backend/controller/logic/ActivityLogger.php` | 🆕 Baru | Audit trail (login, logout, admin actions) |
+| `backend/controller/api/admin.php` | ✏️ Edit | Endpoint: `room_stats`, `activity_logs`, `activity_stats`, `kick` |
+| `backend/controller/api/quiz.php` | ✏️ Edit | Endpoint: `save_chat` (POST), `chat_history` (GET) |
+| `db/migration.php` | 🔄 Replace | Synced dari source — migrasi v3 + tabel `ai_chat_history` |
+| `.htaccess` | ✏️ Edit | `RewriteBase` → `/FlacTopus/` |
+
+### 🎨 Frontend (React)
+| File | Status | Perubahan |
+| --- | --- | --- |
+| `frontend/src/pages/Login.jsx` | 🔄 Replace | Loading screen + rate limit warning + pending approval |
+| `frontend/src/pages/Register.jsx` | 🔄 Replace | Loading screen + rate limit + role fix + pending message |
+| `frontend/src/pages/ErrorPage.jsx` | 🆕 Baru | Halaman error interaktif (401/403/404/429/500) |
+| `frontend/src/pages/AdminPanel.jsx` | 🔄 Replace | 3 tab: User + Ruangan + Activity Log |
+| `frontend/src/pages/ClassDashboard.jsx` | ✏️ Edit | Tombol admin panel (role=admin) + fix join code maxLength |
+| `frontend/src/pages/RoomDetail.jsx` | ✏️ Edit | Tombol chat history per murid + modal riwayat |
+| `frontend/src/pages/Quiz.jsx` | ✏️ Edit | Modularisasi — import dari `components/quiz/*` + `utils/sounds.js` |
+| `frontend/src/components/StudentAIAssistantModal.jsx` | ✏️ Edit | Simpan chat ke backend (`save_chat`) |
+| `frontend/src/components/quiz/BossBackground.jsx` | 🆕 Baru | Boss fight background (Rive animation) |
+| `frontend/src/components/quiz/AiMascot.jsx` | 🆕 Baru | AI mascot (Rive animation, 3 state) |
+| `frontend/src/components/quiz/IceBreakingCharacter.jsx` | 🆕 Baru | Karakter mini-game ice breaking |
+| `frontend/src/components/quiz/IceBreakingView.jsx` | 🆕 Baru | Mini-game ice breaking (intro → learning → testing) |
+| `frontend/src/components/quiz/QuizGameOver.jsx` | 🆕 Baru | Game over screen |
+| `frontend/src/components/quiz/QuizVictory.jsx` | 🆕 Baru | Victory screen |
+| `frontend/src/components/quiz/QuizHPBar.jsx` | 🆕 Baru | HP bar (student + boss) |
+| `frontend/src/utils/sounds.js` | 🆕 Baru | Web Audio API retro sounds (hit, punch, error, select, swoosh, victory, gameover) |
+| `frontend/src/App.jsx` | ✏️ Edit | Route ErrorPage (401/403/404/429/500) |
+| `frontend/src/index.css` | ✏️ Edit | `.loading-screen`, `.loading-spinner`, responsive admin |
+
+### 📄 Dokumentasi
+| File | Status | Perubahan |
+| --- | --- | --- |
+| `README.md` | 🔄 Replace | Profesional — badge, daftar isi, arsitektur, API docs |
+| `info.md` | ✏️ Edit | Daftar perubahan sesi ini |
+| `build.sh` | ✏️ Edit | Komentar → `/FlacTopus/` |
+| `scripts/scan-secrets.sh` | ✏️ Edit | Komentar → `/FlacTopus/` |
+
+### 🗃️ Database (MySQL)
+| Item | Status | Keterangan |
+| --- | --- | --- |
+| `ruangan.theme_color` | ✅ Ditambahkan | VARCHAR(20) DEFAULT '#3b82f6' |
+| `class_members.role` | ✅ Ditambahkan | ENUM('member','admin') DEFAULT 'member' |
+| `class_members.is_marked` | ✅ Ditambahkan | TINYINT(1) DEFAULT 0 |
+| `class_members.pinned_at` | ✅ Ditambahkan | TIMESTAMP NULL |
+| `quiz_attempts` | ✅ Dibuat | Tabel baru (attempt tracking) |
+| `ai_chat_history` | ✅ Dibuat | Tabel baru (riwayat chat AI murid) |
+| `schema_version` | ✅ Updated | v3 (migration) |
+
+### 🔐 Security Audit (Sesi 27 Agustus 2026)
+
+| # | Security Check | Status | Keterangan |
+| --- | --- | --- | --- |
+| 1 | Navigation guard | ✅ Aman | Login/Register redirect ke /classes jika sudah login |
+| 2 | Guru lain tidak bisa aksi di ruangan orang | ✅ Aman | RBAC: isOwner/isOwnerOrSystemAdmin di semua aksi write |
+| 3 | Murid hanya bisa akses room yang join | ✅ Aman | canAccess() cek owner ATAU class_members |
+| 4 | Chat AI disimpan ke JSON file | ✅ Baru | `storage/chat/[nama]/[code_ruangan]/chat.json` |
+| 5 | Deteksi pindah tab (anti-cheat) | ✅ Baru | `visibilitychange` listener + `tab_switches` di quiz_attempts |
+| 6 | Analytics murid curang | ✅ Baru | Section "Deteksi Pindah Tab" di ClassAnalytics |
