@@ -1,0 +1,41 @@
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+node_modules
+dist
+dist-ssr
+*.local
+.env
+.env.*
+!.env.example
+
+# Artefak build yang disalin ke root — jangan commit (bisa mengandung API key ter-inline)
+# Sumber aplikasi ada di frontend/; file-file ini di root hanyalah hasil `bash build.sh`
+# (favicon.svg & icons.svg tidak lagi disalin ke root — sumbernya di assets/img/)
+/node-assets/
+/index.html
+auth/config.php
+
+# Data runtime build silabus per ruangan (file JSON) — jangan di-commit
+# Folder & .htaccess-nya tetap di-track; hanya file JSON hasil save yang di-ignore.
+/storage/ruangan/*.json
+/storage/ruangan/*.json.tmp
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+*ROADMAP.md
+*syarat.md

@@ -1,0 +1,13 @@
+# ============================================================
+# backend/controller/api/.htaccess — buka kembali endpoint API
+# ============================================================
+# Folder ini berisi endpoint API publik (csrf.php, nilai-input.php)
+# yang dipanggil dari browser. Aturan ini membuka kembali akses
+# *.php yang diblokir oleh backend/.htaccess (folder induk).
+# ============================================================
+
+<IfModule mod_authz_core.c>
+    <FilesMatch "\.php$">
+        Require all granted
+    </FilesMatch>
+</IfModule>

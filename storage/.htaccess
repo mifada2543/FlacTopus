@@ -1,0 +1,17 @@
+# ============================================================
+# storage/.htaccess — blokir akses langsung ke file build
+# ============================================================
+# Folder ini berisi file JSON build silabus per ruangan
+# (storage/ruangan/<id>.json). File hanya boleh dibaca/ditulis
+# oleh PHP (backend/controller/logic/RuanganLogic.php) — TIDAK
+# boleh diakses langsung lewat browser.
+# ============================================================
+
+<IfModule mod_authz_core.c>
+    Require all denied
+</IfModule>
+
+<IfModule !mod_authz_core.c>
+    Order allow,deny
+    Deny from all
+</IfModule>

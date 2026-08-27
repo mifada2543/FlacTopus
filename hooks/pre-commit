@@ -1,0 +1,35 @@
+#!/bin/sh
+# ============================================================
+# pre-commit — cegah commit (1) index.html hasil build di root
+#               dan (2) potensi secret (API key / .env)
+# ============================================================
+# build.sh menyalin hasil build dari frontend/ ke ROOT (index.html,
+# assets/, favicon.svg, icons.svg) agar aplikasi bisa disajikan lokal
+# oleh Apache. File-file root itu TIDAK boleh di-commit — dan sudah
+# di-gitignore. Hook ini jadi pengaman lapis kedua bila ada yang
+# memaksa add (git add -f). Sumber asli ada di frontend/.
+# ============================================================
+
+# (1) index.html hasil build di root — BLOKIR hanya saat file di-stage sebagai
+#     TAMBAH (A) / MODIFIKASI (M): artefak build tidak boleh masuk repo.
+#     Penghapusan (D) justru DIBOLEHKAN: file lama yang terlanjur ter-track
+#     harus bisa dihapus dari repo (mis. lewat `git rm --cached index.html`).
+index_status=$(git diff --cached --name-status -- index.html 2>/dev/null | awk '{print $1}')
+if [ "$index_status" = "A" ] || [ "$index_status" = "M" ]; then
+    if [ -f index.html ] && grep -q 'assets/index-' index.html; then
+        echo "⛔ index.html (root) adalah hasil build! JANGAN di-commit."
+        echo "   File di root (index.html, assets/, favicon.svg, icons.svg) sudah di-gitignore."
+        echo "   Sumber asli ada di frontend/ — jangan paksa add:  git add -f index.html"
+        exit 1
+    fi
+fi
+
+# (2) scan secret pada file yang di-staged
+if [ -f scripts/scan-secrets.sh ]; then
+    if ! bash scripts/scan-secrets.sh --staged; then
+        echo "⛔ Commit dibatalkan: ditemukan potensi secret (lihat detail di atas)."
+        exit 1
+    fi
+fi
+
+exit 0

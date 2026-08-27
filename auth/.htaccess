@@ -1,0 +1,31 @@
+# ============================================================
+# auth/.htaccess — proteksi akses langsung ke file internal
+# ============================================================
+# Folder auth/ adalah API backend murni yang dipanggil React:
+#   login.php, register.php, logout.php, session.php  -> BOLEH diakses
+#
+# File internal berikut TIDAK boleh diakses langsung dari browser:
+#   - config.php          (berisi kredensial database!)
+#   - config.example.php  (template konfigurasi)
+#   - auth.php            (helper session + otorisasi)
+# ============================================================
+
+<IfModule mod_authz_core.c>
+    # Apache 2.4+
+    <FilesMatch "^(config|config\.example|auth)\.php$">
+        Require all denied
+    </FilesMatch>
+
+    # Blokir juga file cadangan/editor/skrip yang tak sengaja ter-upload
+    <FilesMatch "\.(bak|old|orig|save|swp|swo|tmp|log|sh|sql)$">
+        Require all denied
+    </FilesMatch>
+</IfModule>
+
+<IfModule !mod_authz_core.c>
+    # Fallback Apache 2.2
+    <FilesMatch "^(config|config\.example|auth)\.php$">
+        Order allow,deny
+        Deny from all
+    </FilesMatch>
+</IfModule>

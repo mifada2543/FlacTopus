@@ -1,0 +1,72 @@
+# ============================================================
+# .htaccess — routing SPA + blokir akses file/folder sensitif
+# ============================================================
+
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    RewriteBase /Project_lomba/
+
+    # ---- Blokir akses langsung ke folder sensitif ----
+    # .git (riwayat repo), .github (config CI), scripts & hooks (skrip
+    # deploy), backend/controller/logic (logika PHP internal — catatan:
+    # backend/controller/api/ tetap boleh diakses), frontend/node_modules
+    # (deps), .vscode/.idea (config editor)
+    RewriteRule ^(\.git|\.github|scripts|hooks|backend/controller/logic|frontend/node_modules|\.vscode|\.idea)(/|$) - [F,L]
+
+    # ---- File/direktori yang benar-benar ada: biarkan ----
+    RewriteCond %{REQUEST_FILENAME} -f [OR]
+    RewriteCond %{REQUEST_FILENAME} -d
+    RewriteRule ^ - [L]
+
+    # ---- Fallback SPA: semua route React -> index.html ----
+    RewriteRule ^ index.html [L]
+</IfModule>
+
+# ---- Blokir file sensitif (berlaku di root + semua subfolder) ----
+# File dot-env & config repo: .env, .env.local, .env.example, .gitignore,
+# .gitattributes, .htpasswd
+<IfModule mod_authz_core.c>
+    <FilesMatch "^\.(env|gitignore|gitattributes|htpasswd)|package-lock\.json$">
+        Require all denied
+    </FilesMatch>
+
+    # Ekstensi berisiko: skrip, SQL, backup/editor, log, lock file
+    <FilesMatch "\.(env|sh|sql|bak|old|orig|save|swp|swo|tmp|log|lock)$">
+        Require all denied
+    </FilesMatch>
+</IfModule>
+
+# Fallback Apache 2.2
+<IfModule !mod_authz_core.c>
+    <FilesMatch "^\.(env|gitignore|gitattributes|htpasswd)">
+        Order allow,deny
+        Deny from all
+    </FilesMatch>
+</IfModule>
+
+# ============================================================
+# Header keamanan (berlaku di semua respons: halaman, API, aset)
+# ============================================================
+<IfModule mod_headers.c>
+    # Anti MIME-sniffing: browser wajib pakai Content-Type asli file
+    Header always set X-Content-Type-Options "nosniff"
+
+    # Anti clickjacking: halaman tidak boleh di-frame situs lain
+    Header always set X-Frame-Options "SAMEORIGIN"
+
+    # Content Security Policy (CSP sederhana)
+    # - Semua resource default dari origin sendiri ('self')
+    # - script: hanya file eksternal same-origin (bundle Vite). Jika nanti
+    #   ada halaman PHP dengan <script> inline, tambahkan 'unsafe-inline'
+    #   atau nonce ke script-src.
+    # - style: izinkan inline style (React memakai style={{}...})
+    # - connect-src: izinkan API Gemini (Socratic AI tutor)
+    # - object-src none: blokir plugin (Flash, dsb)
+    Header always set Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' https://generativelanguage.googleapis.com; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'self'"
+
+    # Sembunyikan versi software (jangan bocorkan versi Apache/PHP/modul)
+    Header always unset X-Powered-By
+</IfModule>
+
+# Jangan tampilkan baris versi Apache di halaman error/direktori otomatis
+ServerSignature Off

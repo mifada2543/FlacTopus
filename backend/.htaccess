@@ -1,0 +1,27 @@
+# ============================================================
+# backend/.htaccess — blokir akses langsung ke file PHP internal
+# ============================================================
+# backend/ berisi logika aplikasi yang hanya boleh dipanggil dari
+# dalam kode (require/include), KECUALI folder controller/api/ yang
+# merupakan endpoint API publik.
+#
+# Yang TIDAK boleh diakses dari browser:
+#   - controller/logic/*.php     (kelas logika, mis. LoginRegisterLogic.php)
+#   - controller/autoloader.php  (autoloader internal)
+# Yang BOLEH diakses:
+#   - controller/api/*.php       (endpoint API publik — diizinkan oleh
+#                                 controller/api/.htaccess)
+#   - README.md                  (dokumentasi)
+# ============================================================
+
+<IfModule mod_authz_core.c>
+    # Apache 2.4+ — blokir semua file PHP di folder ini + subfolder
+    <FilesMatch "\.php$">
+        Require all denied
+    </FilesMatch>
+
+    # Blokir juga file cadangan/editor
+    <FilesMatch "\.(bak|old|orig|save|swp|swo|tmp|log)$">
+        Require all denied
+    </FilesMatch>
+</IfModule>
