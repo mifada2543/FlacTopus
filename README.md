@@ -160,7 +160,7 @@ FlacTopus/
 │   │   ├── App.jsx                # Route definitions + RBAC matrix
 │   │   └── index.css              # CSS variables, dark theme, responsive
 │   ├── vite.config.js             # base: '/FlacTopus/'
-│   └── .env.example               # VITE_GEMINI_API_KEY template
+│   └── (no .env — API key server-side di auth/config.php)
 ├── auth/                          # PHP auth backend
 │   ├── config.php                 # DB, session config, security headers
 │   ├── auth.php                   # require_auth, session hijacking, CSRF
@@ -239,7 +239,7 @@ Atau manual via phpMyAdmin:
 ```bash
 cd frontend
 cp .env.example .env
-# Isi VITE_GEMINI_API_KEY dengan key dari https://aistudio.google.com/apikey
+# API key disimpan di auth/config.php (server-side, tidak di frontend)
 ```
 
 > ⚠️ Tanpa API Key, aplikasi tetap berjalan dalam *mode simulasi* (AI tutor memberi respons placeholder).
@@ -347,7 +347,25 @@ Semua aktivitas dicatat ke tabel `activity_log`: login, logout, register, approv
 | `guest` | Belum login | Landing page, login, register |
 | `student` | Murid terdaftar (aktif) | Kelas yang diikuti, belajar, kuis |
 | `teacher` | Guru terdaftar (aktif) | Semua akses student + buat/hapus ruangan, edit silabus |
-| `admin` | Administrator | **Semua akses** + panel admin (user + ruangan + activity log) |
+| `admin` | Administrator (superuser) | **Akses penuh ke SEMUA** — lihat/hapus/edit semua ruangan guru, kelola user, panel admin |
+
+### RBAC Detail per Aksi
+
+| Aksi | Guest | Student | Teacher (pembuat) | Ketua Kelas | Admin |
+| --- | --- | --- | --- | --- | --- |
+| Lihat ruangan | ❌ | Ruangan diikuti | Ruangan sendiri | — | **SEMUA ruangan** |
+| Buat ruangan | ❌ | ❌ | ✅ | ❌ | ✅ |
+| Hapus ruangan | ❌ | ❌ | ✅ (sendiri) | ❌ | ✅ **semua** |
+| Rename ruangan | ❌ | ❌ | ✅ (sendiri) | ❌ | ✅ **semua** |
+| Edit silabus | ❌ | ❌ | ✅ (sendiri) | ❌ | ✅ **semua** |
+| Lihat members | ❌ | ❌ | ✅ (sendiri) | ✅ (sendiri) | ✅ **semua** |
+| Kick murid | ❌ | ❌ | ✅ (sendiri) | ❌ | ✅ **semua** |
+| Set ketua kelas | ❌ | ❌ | ✅ (sendiri) | ❌ | ✅ **semua** |
+| Mark/Pin murid | ❌ | ❌ | ✅ (sendiri) | ❌ | ✅ **semua** |
+| Analytics | ❌ | ❌ | ✅ (sendiri) | ✅ (sendiri) | ✅ **semua** |
+| Chat history | ❌ | ❌ | ✅ (sendiri) | ❌ | ✅ **semua** |
+| Anti-cheat | ❌ | ❌ | ✅ (sendiri) | ✅ (sendiri) | ✅ **semua** |
+| Panel admin | ❌ | ❌ | ❌ | ❌ | ✅ |
 
 ### Flow Autentikasi
 
@@ -433,14 +451,18 @@ Tabel pendukung untuk rate limiting, audit trail, dan migrasi.
 ### Ruangan (`backend/controller/api/ruangan.php`)
 | Aksi | Method | Role | Deskripsi |
 | --- | --- | --- | --- |
-| `list` | GET | Semua (login) | Daftar ruangan |
+| `list` | GET | Semua (login) | Daftar ruangan (admin lihat **SEMUA**, guru lihat sendiri) |
 | `create` | POST | teacher/admin | Buat ruangan baru |
 | `join` | POST | student/admin | Gabung via kode 6 karakter |
-| `delete` | POST | pemilik/admin | Hapus ruangan permanen |
-| `rename` | POST | pemilik/admin | Ubah nama ruangan |
-| `kick` | POST | pemilik/admin | Keluarkan murid |
-| `syllabus` | GET/POST | anggota/pemilik | Baca/simpan skill tree |
-| `heartbeat` | POST | anggota | Keep-alive |
+| `delete` | POST | pemilik + admin | Hapus ruangan permanen (admin bisa hapus ruangan guru) |
+| `rename` | POST | pemilik + admin | Ubah nama ruangan |
+| `kick` | POST | pemilik + admin | Keluarkan murid |
+| `set_admin` | POST | pemilik + admin | Atur ketua kelas |
+| `toggle_mark` | POST | pemilik + admin | Tandai murid |
+| `toggle_pin` | POST | pemilik + admin | Pin murid |
+| `touch` | POST | anggota + admin | Keep-alive |
+| `syllabus` | GET/POST | anggota + pemilik + admin | Baca/simpan skill tree |
+| `heartbeat` | POST | anggota + admin | Keep-alive |
 
 ### Admin (`backend/controller/api/admin.php`)
 | Aksi | Method | Role | Deskripsi |
@@ -512,7 +534,7 @@ Kontribusi selalu terbuka! Silakan ikuti langkah berikut:
 - **Build workflow:** `bash build.sh` → Vite build → copy `index.html` + `node-assets/` ke root → XAMPP serve
 - **Root `index.html` & `node-assets/`** adalah artefak build (di-gitignore) — sumber selalu di `frontend/`
 - **Storage silabus:** File JSON di `storage/ruangan/<id>.json` (di-deny .htaccess)
-- **AI Key:** `VITE_GEMINI_API_KEY` di `frontend/.env` — inlined ke bundle saat build
+- **AI Key:** `GEMINI_API_KEY` di `auth/config.php` (server-side, tidak ter-expose ke frontend)
 - **Password:** Semua di-hash bcrypt; demo password = `password123`
 - **Timezone:** MySQL timezone = WIB (+07:00)
 - **Register:** Selalu role `student` — guru/admin ditambahkan via Panel Admin

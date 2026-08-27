@@ -72,8 +72,11 @@ class RuanganLogic
         $sisa = '999999 AS sisa_detik';
 
         if ($role === 'admin') {
-            // Admin web tidak memiliki akses ke kelas manapun
-            return [];
+            // Admin = superuser, lihat SEMUA ruangan
+            $sql = "SELECT r.*, u.name AS guru, $sisa
+                    FROM ruangan r JOIN users u ON u.id = r.user_id
+                    ORDER BY r.created_at DESC";
+            $params = [];
         } elseif ($role === 'teacher') {
             $sql = "SELECT r.*, u.name AS guru, $sisa
                     FROM ruangan r JOIN users u ON u.id = r.user_id
@@ -219,8 +222,8 @@ class RuanganLogic
     {
         $this->purgeExpired();
 
-        if (!$this->isOwner($id, (int) $user['id'])) {
-            return ['success' => false, 'message' => 'Hanya guru pembuat ruangan yang bisa menghapus.'];
+        if (!$this->isOwnerOrSystemAdmin($id, (int) $user['id'])) {
+            return ['success' => false, 'message' => 'Hanya guru pembuat ruangan atau admin sistem yang bisa menghapus.'];
         }
 
         $this->db->prepare('DELETE FROM ruangan WHERE id = ?')->execute([$id]);
@@ -480,8 +483,8 @@ class RuanganLogic
     {
         $this->purgeExpired();
 
-        if (!$this->isOwner($ruanganId, (int) $user['id'])) {
-            return ['success' => false, 'message' => 'Hanya guru pembuat ruangan yang mengatur jabatan murid.'];
+        if (!$this->isOwnerOrSystemAdmin($ruanganId, (int) $user['id'])) {
+            return ['success' => false, 'message' => 'Hanya guru pembuat ruangan atau admin sistem yang bisa mengatur jabatan murid.'];
         }
 
         if (!in_array($role, ['member', 'admin'])) {
@@ -503,8 +506,8 @@ class RuanganLogic
      */
     public function toggleMark(array $user, int $ruanganId, int $memberUserId): array
     {
-        if (!$this->isOwner($ruanganId, (int) $user['id'])) {
-            return ['success' => false, 'message' => 'Hanya guru pembuat ruangan yang mengatur tanda murid.'];
+        if (!$this->isOwnerOrSystemAdmin($ruanganId, (int) $user['id'])) {
+            return ['success' => false, 'message' => 'Hanya guru pembuat ruangan atau admin sistem yang bisa mengatur tanda murid.'];
         }
 
         $stmt = $this->db->prepare('UPDATE class_members SET is_marked = NOT is_marked WHERE ruangan_id = ? AND user_id = ?');
@@ -521,8 +524,8 @@ class RuanganLogic
      */
     public function togglePin(array $user, int $ruanganId, int $memberUserId): array
     {
-        if (!$this->isOwner($ruanganId, (int) $user['id'])) {
-            return ['success' => false, 'message' => 'Hanya guru pembuat ruangan yang mengatur pin murid.'];
+        if (!$this->isOwnerOrSystemAdmin($ruanganId, (int) $user['id'])) {
+            return ['success' => false, 'message' => 'Hanya guru pembuat ruangan atau admin sistem yang bisa mengatur pin murid.'];
         }
 
         $stmt = $this->db->prepare('SELECT pinned_at FROM class_members WHERE ruangan_id = ? AND user_id = ?');
@@ -557,7 +560,7 @@ class RuanganLogic
         $this->purgeExpired();
 
         $uid     = (int) $user['id'];
-        if (!$this->isOwner($ruanganId, $uid)) {
+        if (!$this->isOwnerOrSystemAdmin($ruanganId, $uid)) {
             $stmt = $this->db->prepare('SELECT id FROM class_members WHERE ruangan_id = ? AND user_id = ?');
             $stmt->execute([$ruanganId, $uid]);
             if (!$stmt->fetch()) {
@@ -580,7 +583,7 @@ class RuanganLogic
      */
     public function touch(array $user, int $id): bool
     {
-        if (!$this->isOwner($id, (int) $user['id'])) {
+        if (!$this->isOwnerOrSystemAdmin($id, (int) $user['id'])) {
             $stmt = $this->db->prepare('SELECT id FROM class_members WHERE ruangan_id = ? AND user_id = ?');
             $stmt->execute([$id, (int) $user['id']]);
             if (!$stmt->fetch()) {
@@ -640,9 +643,17 @@ class RuanganLogic
         if ($this->isOwner($ruanganId, $userId)) {
             return true;
         }
+        // Cek ketua kelas (class member admin)
         $stmt = $this->db->prepare("SELECT id FROM class_members WHERE ruangan_id = ? AND user_id = ? AND role = 'admin'");
         $stmt->execute([$ruanganId, $userId]);
-        return (bool) $stmt->fetch();
+        if ((bool) $stmt->fetch()) {
+            return true;
+        }
+        // Cek admin sistem (role='admin' di tabel users)
+        $stmt2 = $this->db->prepare('SELECT role FROM users WHERE id = ?');
+        $stmt2->execute([$userId]);
+        $row = $stmt2->fetch();
+        return $row && ($row['role'] ?? '') === 'admin';
     }
 
     /**

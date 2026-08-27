@@ -11,11 +11,8 @@ node_modules
 dist
 dist-ssr
 *.local
-.env
-.env.*
-!.env.example
 
-# Artefak build yang disalin ke root — jangan commit (bisa mengandung API key ter-inline)
+# Artefak build yang disalin ke root — jangan commit
 # Sumber aplikasi ada di frontend/; file-file ini di root hanyalah hasil `bash build.sh`
 # (favicon.svg & icons.svg tidak lagi disalin ke root — sumbernya di assets/img/)
 /node-assets/

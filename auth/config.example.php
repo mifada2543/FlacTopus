@@ -5,7 +5,7 @@
 // Cara pakai:
 //   1. Salin file ini menjadi config.php
 //        cp auth/config.example.php auth/config.php
-//   2. Sesuaikan kredensial database di bawah dengan MySQL kamu
+//   2. Sesuaikan kredensial database & API key di bawah
 //   3. JANGAN commit config.php (sudah di-gitignore)
 // ============================================================
 
@@ -29,6 +29,12 @@ const REDIRECT_STUDENT = '/';
 const SESSION_NAME = 'FlacTopus';
 const SESSION_LIFETIME = 7200;      // Masa berlaku maksimal sesi (detik) = 2 jam
 const SESSION_IDLE_TIMEOUT = 1800;  // Auto-logout bila idle (detik) = 30 menit
+
+// --- Gemini API (backend proxy) ---
+// API key hanya disimpan di server, TIDAK PERNAH dikirim ke frontend.
+// Dapatkan key gratis di: https://aistudio.google.com/apikey
+// Batasi key di Google Cloud Console → Application restrictions → HTTP referrers.
+const GEMINI_API_KEY = '';
 
 /**
  * Membuat koneksi PDO ke MySQL (singleton).
@@ -57,9 +63,16 @@ function start_session(): void
     // cookie_lifetime = masa berlaku ABSOLUT (2 jam dihitung sejak sesi dibuat,
     // mis. saat login); idle timeout (30 menit) bersifat geser/sliding. Jadi
     // pengguna yang aktif pun tetap logout saat genap 2 jam.
+    //
+    // Secure flag: dynamic — hanya aktif jika HTTPS terdeteksi.
+    // (MEeL pattern: cek HTTPS + X-Forwarded-Proto)
+    $isSecure = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
+             || (!empty($_SERVER['HTTP_X_FORWARDED_PROTO']) && strtolower($_SERVER['HTTP_X_FORWARDED_PROTO']) === 'https');
+
     $opts = [
         'cookie_lifetime' => SESSION_LIFETIME,
         'cookie_httponly' => true,
+        'cookie_secure'  => $isSecure,
         'cookie_samesite' => 'Lax',
         // Cookie hanya dikirim ke aplikasi ini, bukan seluruh localhost
         'cookie_path' => parse_url(BASE_URL, PHP_URL_PATH) ?: '/',
@@ -149,5 +162,78 @@ function read_json_body(): array
 {
     $raw  = file_get_contents('php://input');
     $data = json_decode($raw, true);
-    return is_array($data) ? $data : $_POST;
+    return is_array($data) ? $data : [];
+}
+
+// ------------------------------------------------------------
+// Security Headers (MEeL pattern)
+// ------------------------------------------------------------
+// Dikirim oleh config.php yang di-include oleh semua halaman.
+// Headers ini melindungi dari clickjacking, MIME sniffing, dll.
+if (!headers_sent()) {
+    header('X-Content-Type-Options: nosniff');
+    header('X-Frame-Options: DENY');
+    header('Referrer-Policy: strict-origin-when-cross-origin');
+    header('Permissions-Policy: camera=(), microphone=(), geolocation=()');
+    header('Cross-Origin-Opener-Policy: same-origin');
+    // HSTS hanya jika HTTPS
+    if (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') {
+        header('Strict-Transport-Security: max-age=15552000; includeSubDomains');
+    }
+}
+
+// ------------------------------------------------------------
+// Back URL Validation (MEeL pattern)
+// Mencegah open redirect: hanya izinkan redirect ke halaman yang
+// benar-benar berasal dari origin yang sama.
+// ------------------------------------------------------------
+function safe_back_url(string $default = '/classes'): string
+{
+    $referer = $_SERVER['HTTP_REFERER'] ?? '';
+    if ($referer === '') {
+        return $default;
+    }
+    $refHost = parse_url($referer, PHP_URL_HOST);
+    $appHost = parse_url(BASE_URL, PHP_URL_HOST);
+    // Hanya izinkan jika host cocok (case-insensitive)
+    if ($refHost !== null && $appHost !== null && strcasecmp($refHost, $appHost) === 0) {
+        $path = parse_url($referer, PHP_URL_PATH) ?? '';
+        // Tolak jika referer ke halaman auth (login/register) untuk cegah loop
+        if (strpos($path, 'login') === false && strpos($path, 'register') === false) {
+            return $referer;
+        }
+    }
+    return $default;
+}
+
+// ================================================================
+// AUTO GARBAGE COLLECTION (periodik, max 1x per jam)
+// ================================================================
+// Dijalankan sekali per request (jika sudah waktunya). Anti double-run
+// di-handle oleh GarbageCollector::shouldRun() via file timestamp.
+// Gunakan background supaya tidak memperlambat response user.
+// ================================================================
+if (PHP_SAPI !== 'cli' && !headers_sent()) {
+    $gcFile = __DIR__ . '/../backend/controller/logic/GarbageCollector.php';
+    $gcStamp = __DIR__ . '/../storage/.gc_last_run';
+    $gcReady = true;
+
+    // Cek interval minimum (1 jam)
+    if (is_file($gcStamp)) {
+        $lastRun = (int) file_get_contents($gcStamp);
+        if ((time() - $lastRun) < 3600) {
+            $gcReady = false;
+        }
+    }
+
+    if ($gcReady && is_file($gcFile)) {
+        try {
+            require_once $gcFile;
+            $gc = new GarbageCollector();
+            $gc->run();
+        } catch (Throwable $e) {
+            // GC gagal — jangan ganggu request user
+            error_log('[GC] Auto-run error: ' . $e->getMessage());
+        }
+    }
 }

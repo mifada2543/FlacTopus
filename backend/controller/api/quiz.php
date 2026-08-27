@@ -54,8 +54,8 @@ if ($method === 'GET') {
             $isKetua = $member && $member['role'] === 'admin';
         }
 
-        if (!$isOwner && !$isKetua) {
-            json_response(['success' => false, 'message' => 'Hanya guru atau ketua kelas yang bisa melihat analytics.'], 403);
+        if (!$isOwner && !$isKetua && $user['role'] !== 'admin') {
+            json_response(['success' => false, 'message' => 'Hanya guru, ketua kelas, atau admin yang bisa melihat analytics.'], 403);
         }
 
         // 1) Ringkasan: rata-rata nilai, total attempt, total murid unik (hanya murid yang MASIH di kelas)
@@ -166,8 +166,8 @@ if ($method === 'GET') {
             $isKetua = $member && $member['role'] === 'admin';
         }
 
-        if (!$isOwner && !$isKetua) {
-            json_response(['success' => false, 'message' => 'Hanya guru atau ketua kelas yang bisa melihat trend analytics.'], 403);
+        if (!$isOwner && !$isKetua && $user['role'] !== 'admin') {
+            json_response(['success' => false, 'message' => 'Hanya guru, ketua kelas, atau admin yang bisa melihat trend analytics.'], 403);
         }
 
         $stmt = $db->prepare(
@@ -208,8 +208,8 @@ if ($method === 'GET') {
             $isKetua = $member && $member['role'] === 'admin';
         }
 
-        if (!$isOwner && !$isKetua) {
-            json_response(['success' => false, 'message' => 'Hanya guru atau ketua kelas yang bisa melihat analytics partisipasi.'], 403);
+        if (!$isOwner && !$isKetua && $user['role'] !== 'admin') {
+            json_response(['success' => false, 'message' => 'Hanya guru, ketua kelas, atau admin yang bisa melihat analytics partisipasi.'], 403);
         }
 
         // 1. Get all students in the class
@@ -257,8 +257,8 @@ if ($method === 'GET') {
             $isKetua = $member && $member['role'] === 'admin';
         }
 
-        if (!$isOwner && !$isKetua) {
-            json_response(['success' => false, 'message' => 'Hanya guru atau ketua kelas yang bisa melihat leaderboard.'], 403);
+        if (!$isOwner && !$isKetua && $user['role'] !== 'admin') {
+            json_response(['success' => false, 'message' => 'Hanya guru, ketua kelas, atau admin yang bisa melihat leaderboard.'], 403);
         }
 
         $stmt = $db->prepare("
@@ -300,8 +300,8 @@ if ($method === 'GET') {
         $isOwner = $room && (int) $room['user_id'] === (int) $user['id'];
         $isKetua = $member && $member['role'] === 'admin';
         
-        if (!$isOwner && !$isKetua) {
-            json_response(['success' => false, 'message' => 'Hanya guru atau ketua kelas yang dapat melihat analytics.'], 403);
+        if (!$isOwner && !$isKetua && $user['role'] !== 'admin') {
+            json_response(['success' => false, 'message' => 'Hanya guru, ketua kelas, atau admin yang dapat melihat analytics.'], 403);
         }
 
         // Load Syllabus Map for Option Mapping
