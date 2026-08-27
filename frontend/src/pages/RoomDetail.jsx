@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, Users, UserX, Clock, KeyRound, BarChart3, Edit3, Pin, Star, Trash2, AlertTriangle } from 'lucide-react';
+import { ArrowLeft, Users, UserX, Clock, KeyRound, BarChart3, Edit3, Pin, Star, Trash2, AlertTriangle, MessageSquare, Bot, User, X } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 import { useRoomHeartbeat } from '../hooks/useRoomHeartbeat';
-import { RUANGAN_API } from '../utils/api';
+import { RUANGAN_API, QUIZ_API } from '../utils/api';
 import { ROLE } from '../utils/roles';
 
 // Clock timer logic removed
@@ -25,6 +25,9 @@ export default function RoomDetail() {
 
   const [showResetModal, setShowResetModal] = useState(false);
   const [resetCountdown, setResetCountdown] = useState(5);
+  const [showChatModal, setShowChatModal] = useState(null); // { studentId, studentName }
+  const [chatHistory, setChatHistory] = useState([]);
+  const [chatLoading, setChatLoading] = useState(false);
 
   useEffect(() => {
     let timer;
@@ -144,6 +147,23 @@ export default function RoomDetail() {
     }
   };
 
+  const loadChatHistory = async (studentId, studentName) => {
+    setShowChatModal({ studentId, studentName });
+    setChatLoading(true);
+    setChatHistory([]);
+    try {
+      const res = await fetch(`${QUIZ_API}?action=chat_history&ruangan_id=${roomId}&student_id=${studentId}`, { credentials: 'same-origin' });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data.success) {
+        setChatHistory(data.chats || []);
+      }
+    } catch (err) {
+      console.error('Gagal memuat riwayat chat:', err);
+    } finally {
+      setChatLoading(false);
+    }
+  };
+
   const handleTogglePin = async (member) => {
     try {
       const res = await fetch(`${RUANGAN_API}/ruangan.php`, {
@@ -252,7 +272,19 @@ export default function RoomDetail() {
       </div>
 
       {/* Daftar murid */}
-      <h2 style={{ fontSize: '1.2rem', marginBottom: '1rem' }}>Daftar Murid</h2>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+        <h2 style={{ fontSize: '1.2rem' }}>Daftar Murid</h2>
+        {(user.role === ROLE.ADMIN || (room && room.user_id === user.id)) && (
+          <button
+            onClick={() => loadChatHistory(0, 'Semua Murid')}
+            style={{ background: 'transparent', border: '1px solid #8b5cf6', color: '#8b5cf6', padding: '0.5rem 1rem', borderRadius: '8px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.85rem', fontWeight: 'bold', transition: 'all 0.2s' }}
+            onMouseOver={(e) => { e.currentTarget.style.background = '#8b5cf6'; e.currentTarget.style.color = '#fff'; }}
+            onMouseOut={(e) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#8b5cf6'; }}
+          >
+            <MessageSquare size={15} /> Riwayat Chat AI
+          </button>
+        )}
+      </div>
       {members.length === 0 ? (
         <div style={{ textAlign: 'center', padding: '3rem', background: 'var(--bg-card)', borderRadius: '12px', border: '1px dashed var(--border-color)', color: 'var(--text-muted)' }}>
           <Users size={40} style={{ opacity: 0.5, marginBottom: '0.8rem' }} />
@@ -316,6 +348,17 @@ export default function RoomDetail() {
                     </button>
                   </>
                 )}
+                {(user.role === ROLE.ADMIN || (room && room.user_id === user.id)) && (
+                  <button
+                    onClick={() => loadChatHistory(member.id, member.name)}
+                    title="Lihat Riwayat Chat AI"
+                    style={{ background: 'transparent', border: '1px solid #8b5cf6', color: '#8b5cf6', padding: '0.45rem 0.9rem', borderRadius: '8px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.85rem', transition: 'all 0.2s' }}
+                    onMouseOver={(e) => { e.currentTarget.style.background = '#8b5cf6'; e.currentTarget.style.color = '#fff'; }}
+                    onMouseOut={(e) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#8b5cf6'; }}
+                  >
+                    <MessageSquare size={15} /> Chat
+                  </button>
+                )}
                 <button
                   onClick={() => handleKick(member)}
                   title="Keluarkan murid dari ruangan"
@@ -328,6 +371,77 @@ export default function RoomDetail() {
               </div>
             </div>
           ))}
+        </div>
+      )}
+
+      {/* Chat History Modal */}
+      {showChatModal && (
+        <div className="modal-overlay" onClick={() => setShowChatModal(null)}>
+          <div className="modal-content" style={{ maxWidth: '700px', maxHeight: '80vh', display: 'flex', flexDirection: 'column' }} onClick={(e) => e.stopPropagation()}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+              <h2 className="modal-title" style={{ textAlign: 'left', fontSize: '1.3rem' }}>
+                💬 Riwayat Chat AI — {showChatModal.studentName}
+              </h2>
+              <button onClick={() => setShowChatModal(null)} style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}>
+                <X size={24} />
+              </button>
+            </div>
+            
+            <div className="no-scrollbar" style={{ flex: 1, overflowY: 'auto', maxHeight: '60vh' }}>
+              {chatLoading ? (
+                <div style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)' }}>Memuat riwayat chat...</div>
+              ) : chatHistory.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)' }}>
+                  <Bot size={40} style={{ opacity: 0.4, marginBottom: '0.5rem' }} />
+                  <p>Belum ada riwayat chat AI.</p>
+                </div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                  {/* Group by node */}
+                  {(() => {
+                    const grouped = {};
+                    chatHistory.forEach(chat => {
+                      const key = chat.node_label || 'Umum';
+                      if (!grouped[key]) grouped[key] = [];
+                      grouped[key].push(chat);
+                    });
+                    return Object.entries(grouped).map(([nodeLabel, chats]) => (
+                      <div key={nodeLabel} style={{ background: 'var(--bg-main)', borderRadius: '12px', padding: '1rem', border: '1px solid var(--border-color)' }}>
+                        <h4 style={{ color: 'var(--accent-green)', fontSize: '0.9rem', marginBottom: '0.8rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                          📚 {nodeLabel}
+                        </h4>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem' }}>
+                          {chats.map((chat, i) => {
+                            const isUser = chat.role === 'user';
+                            return (
+                              <div key={i} style={{ display: 'flex', gap: '0.6rem', flexDirection: isUser ? 'row-reverse' : 'row' }}>
+                                <div style={{ width: 28, height: 28, borderRadius: '50%', background: isUser ? 'rgba(255,255,255,0.1)' : 'rgba(16,185,129,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                                  {isUser ? <User size={14} color="white" /> : <Bot size={14} color="var(--accent-green)" />}
+                                </div>
+                                <div style={{
+                                  background: isUser ? '#3b82f6' : 'var(--bg-card)',
+                                  color: isUser ? 'white' : 'var(--text-main)',
+                                  padding: '0.6rem 0.9rem',
+                                  borderRadius: '12px',
+                                  fontSize: '0.85rem',
+                                  lineHeight: 1.5,
+                                  maxWidth: '80%',
+                                  border: isUser ? 'none' : '1px solid var(--border-color)',
+                                  wordBreak: 'break-word',
+                                }}>
+                                  {chat.content}
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    ));
+                  })()}
+                </div>
+              )}
+            </div>
+          </div>
         </div>
       )}
 

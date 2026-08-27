@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { X, Sparkles, Send, Loader, Bot, User, Trash2, Maximize2, Minimize2 } from 'lucide-react';
 import { chatWithTeacherAssistant } from '../../utils/aiService';
 import { quizGet } from '../../utils/api';
+import { useAuth } from '../../hooks/useAuth';
 import { BarChart, Bar, LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 import { useRive } from '@rive-app/react-canvas';
 
@@ -26,6 +27,7 @@ const AiMascotReviewing = () => {
 };
 
 export default function TeacherAIAssistantModal({ onClose, analyticsData, roomName, roomId }) {
+  const { csrfToken } = useAuth();
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
@@ -129,7 +131,7 @@ export default function TeacherAIAssistantModal({ onClose, analyticsData, roomNa
     setIsTyping(true);
     
     try {
-      const aiResponse = await chatWithTeacherAssistant(newMessages, buildContext());
+      const aiResponse = await chatWithTeacherAssistant(newMessages, buildContext(), csrfToken);
       setMessages([...newMessages, { role: 'model', content: aiResponse }]);
     } catch (err) {
       setMessages([...newMessages, { role: 'model', content: `[ERROR] Wah maaf Bapak/Ibu Guru, sepertinya asisten sedang terlalu banyak diakses (server penuh). Tunggu sebentar lalu coba tanyakan lagi ya!` }]);

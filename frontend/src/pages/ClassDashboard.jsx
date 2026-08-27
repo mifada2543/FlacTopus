@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { BookOpen, Plus, LogOut, Users, Trash2, UserCog, Search, Pencil, Copy } from 'lucide-react';
+import { BookOpen, Plus, LogOut, Users, Trash2, UserCog, Search, Pencil, Copy, Settings } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 import { AUTH_API, RUANGAN_API } from '../utils/api';
 import { ROLE } from '../utils/roles';
@@ -255,9 +255,21 @@ export default function ClassDashboard() {
           <h1 style={{ color: 'var(--accent-green)', fontSize: '2rem' }}>Halo, {user?.name}!</h1>
           <p style={{ color: 'var(--text-muted)' }}>Role: {user?.role === ROLE.TEACHER ? 'Guru' : user?.role === ROLE.ADMIN ? 'Admin' : 'Murid'}</p>
         </div>
-        <button onClick={handleLogout} style={{ background: 'transparent', border: '1px solid #ef4444', color: '#ef4444', padding: '0.5rem 1rem', borderRadius: '8px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-          <LogOut size={18} /> Keluar
-        </button>
+        <div style={{ display: 'flex', gap: '0.7rem', alignItems: 'center' }}>
+          {user?.role === ROLE.ADMIN && (
+            <button
+              onClick={() => navigate('/admin')}
+              style={{ background: 'transparent', border: '1px solid #8b5cf6', color: '#8b5cf6', padding: '0.5rem 1rem', borderRadius: '8px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.5rem', fontWeight: 'bold', fontSize: '0.9rem', transition: 'all 0.2s' }}
+              onMouseOver={(e) => { e.currentTarget.style.background = '#8b5cf6'; e.currentTarget.style.color = '#fff'; }}
+              onMouseOut={(e) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#8b5cf6'; }}
+            >
+              <Settings size={18} /> Panel Admin
+            </button>
+          )}
+          <button onClick={handleLogout} style={{ background: 'transparent', border: '1px solid #ef4444', color: '#ef4444', padding: '0.5rem 1rem', borderRadius: '8px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <LogOut size={18} /> Keluar
+          </button>
+        </div>
       </header>
 
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
@@ -447,11 +459,20 @@ export default function ClassDashboard() {
               type="text"
               placeholder="Masukkan 6 Digit Kode Ruangan"
               value={joinCode}
-              onChange={(e) => { setJoinCode(e.target.value); setJoinError(''); }}
+              onChange={(e) => {
+                const val = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 6);
+                setJoinCode(val);
+                setJoinError('');
+              }}
               aria-invalid={!!joinError}
-              style={{ width: '100%', padding: '1rem', background: '#0f172a', border: `1px solid ${joinError ? '#ef4444' : 'var(--border-color)'}`, color: 'white', borderRadius: '8px', marginBottom: joinError ? '0.5rem' : '1.5rem', textTransform: 'uppercase', letterSpacing: '2px', textAlign: 'center', fontSize: '1.2rem', fontWeight: 'bold', transition: 'border-color 0.2s' }}
               maxLength={6}
+              inputMode="text"
+              autoComplete="off"
+              style={{ width: '100%', padding: '1rem', background: '#0f172a', border: `1px solid ${joinError ? '#ef4444' : 'var(--border-color)'}`, color: 'white', borderRadius: '8px', marginBottom: joinError ? '0.5rem' : '0.5rem', letterSpacing: '6px', textAlign: 'center', fontSize: '1.5rem', fontWeight: 'bold', transition: 'border-color 0.2s', fontFamily: 'monospace' }}
             />
+            <p style={{ textAlign: 'center', color: joinCode.length === 6 ? 'var(--accent-green)' : 'var(--text-muted)', fontSize: '0.8rem', marginBottom: joinError ? '0.5rem' : '1.5rem', transition: 'color 0.2s' }}>
+              {joinCode.length}/6 karakter{joinCode.length === 6 && ' ✓'}
+            </p>
             {joinError && (
               <p role="alert" style={{ color: '#ef4444', fontSize: '0.85rem', marginBottom: '1rem' }}>⚠️ {joinError}</p>
             )}

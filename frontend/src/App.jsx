@@ -8,6 +8,8 @@ import RoomDetail from './pages/RoomDetail';
 import TeacherDashboard from './pages/TeacherDashboard';
 import StudentDashboard from './pages/StudentDashboard';
 import Quiz from './pages/Quiz';
+import AdminPanel from './pages/AdminPanel';
+import ErrorPage from './pages/ErrorPage';
 import ProtectedRoute from './components/ProtectedRoute';
 import { ROLE } from './utils/roles';
 import './index.css';
@@ -89,7 +91,24 @@ function App() {
           )}
         />
 
-        <Route path="*" element={<Navigate to="/" replace />} />
+        {/* Admin panel: hanya admin */}
+        <Route
+          path="/admin"
+          element={(
+            <ProtectedRoute roles={[ROLE.ADMIN]}>
+              <AdminPanel />
+            </ProtectedRoute>
+          )}
+        />
+
+        {/* Error pages */}
+        <Route path="/401" element={<ErrorPage statusCode={401} />} />
+        <Route path="/403" element={<ErrorPage statusCode={403} />} />
+        <Route path="/404" element={<ErrorPage statusCode={404} />} />
+        <Route path="/429" element={<ErrorPage statusCode={429} />} />
+        <Route path="/500" element={<ErrorPage statusCode={500} />} />
+
+        <Route path="*" element={<ErrorPage statusCode={404} />} />
       </Routes>
     </Router>
   );

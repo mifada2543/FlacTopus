@@ -27,6 +27,8 @@ export default function ClassAnalytics() {
   const [isLeaderboardOpen, setIsLeaderboardOpen] = useState(false);
   const [isExplorerModalOpen, setIsExplorerModalOpen] = useState(false);
   const [isAIAssistantOpen, setIsAIAssistantOpen] = useState(false);
+  const [cheatingData, setCheatingData] = useState(null);
+  const [isCheatingLoading, setIsCheatingLoading] = useState(false);
 
   useEffect(() => {
     const handleResize = () => setIsMobile(window.innerWidth <= 768);
@@ -37,9 +39,10 @@ export default function ClassAnalytics() {
   const fetchData = useCallback(async () => {
     try {
       // Fetch room info + analytics in parallel
-      const [syllabusData, analyticsData] = await Promise.all([
+      const [syllabusData, analyticsData, cheatingRes] = await Promise.all([
         ruanganGet('syllabus', { id: classId }),
         quizGet('analytics', { ruangan_id: classId }),
+        quizGet('analytics_cheating', { ruangan_id: classId }).catch(() => null),
       ]);
       setRoom({
         nama: syllabusData.nama,
@@ -47,6 +50,7 @@ export default function ClassAnalytics() {
         nodes: syllabusData.nodes || [],
       });
       setAnalytics(analyticsData);
+      setCheatingData(cheatingRes);
     } catch (err) {
       setError(err.message);
     } finally {
@@ -372,6 +376,54 @@ export default function ClassAnalytics() {
                       <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#f59e0b', fontSize: '0.8rem', fontWeight: 600 }}>
                         <AlertTriangle size={14} />
                         {item.wrong_count} Murid Menjawab Salah
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Cheating Detection (Tab Switch) */}
+          <div style={{
+            ...styles.section,
+            borderColor: isBlackTheme ? 'rgba(255,255,255,0.1)' : room?.theme_color ? `${room.theme_color}30` : 'var(--border-color)',
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+              <h3 style={{ ...styles.sectionTitle, marginBottom: 0 }}>
+                <AlertTriangle size={20} color="#ef4444" /> Deteksi Pindah Tab
+              </h3>
+              {(cheatingData?.cheaters?.length || 0) > 0 && (
+                <span style={{ background: 'rgba(239, 68, 68, 0.15)', color: '#f87171', fontSize: '0.75rem', padding: '0.2rem 0.6rem', borderRadius: '12px', fontWeight: 600 }}>
+                  {cheatingData.cheaters.length} Murid
+                </span>
+              )}
+            </div>
+            {!cheatingData || cheatingData.cheaters?.length === 0 ? (
+              <EmptyState text="Tidak ada deteksi pindah tab." />
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                {cheatingData.cheaters.slice(0, 5).map((c, i) => (
+                  <div key={i} style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '1rem',
+                    padding: '0.8rem 1rem',
+                    background: 'rgba(239, 68, 68, 0.05)',
+                    borderRadius: '12px',
+                    border: '1px solid rgba(239, 68, 68, 0.15)',
+                  }}>
+                    <div style={{ width: '40px', textAlign: 'center', fontSize: '1.2rem', fontWeight: 800, color: '#ef4444' }}>
+                      ⚠️
+                    </div>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontWeight: 600, color: 'var(--text-main)', fontSize: '0.9rem' }}>
+                        {c.name}
+                      </div>
+                      <div style={{ display: 'flex', gap: '1rem', color: 'var(--text-muted)', fontSize: '0.8rem', marginTop: '0.2rem' }}>
+                        <span>Pindah tab: <strong style={{ color: '#ef4444' }}>{c.total_switches}x</strong></span>
+                        <span>Attempt: {c.total_attempts}</span>
+                        <span>Rata-rata: {c.avg_score}</span>
                       </div>
                     </div>
                   </div>
