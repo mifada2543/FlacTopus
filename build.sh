@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # ============================================================
 # build.sh — Build produksi frontend lalu salin hasil ke root
-# (Workflow lokal XAMPP/LAMPP: /opt/lampp/htdocs/Project_lomba)
+# (Workflow lokal XAMPP/LAMPP: /opt/lampp/htdocs/FlacTopus)
 # ============================================================
 # Alur:
 #   1. cd frontend && npm run build    → menghasilkan frontend/dist/
@@ -18,7 +18,7 @@
 # frontend/public/). index.html mengacu /assets/img/favicon.svg.
 #
 # Apache menyajikan root project di:
-#   http://localhost/Project_lomba/
+#   http://localhost/FlacTopus/
 #
 # ⚠️ PENTING (keamanan):
 #   - index.html & node-assets/ di ROOT adalah HASIL BUILD (di-gitignore)
@@ -43,5 +43,5 @@ cp -r frontend/dist/node-assets/. node-assets/
 # Bersihkan artefak favicon lama di root (sejak kini sumbernya di assets/img/)
 rm -f favicon.svg icons.svg
 
-echo "✅ Selesai! Aplikasi siap di http://localhost/Project_lomba/"
+echo "✅ Selesai! Aplikasi siap di http://localhost/FlacTopus/"
 echo "⚠️  index.html & node-assets/ di root adalah hasil build — JANGAN di-commit."
