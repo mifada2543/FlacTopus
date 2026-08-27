@@ -1,0 +1,9 @@
+# Izinkan hanya file gambar
+<IfModule mod_authz_core.c>
+    <FilesMatch "\.(svg|png|jpg|jpeg|gif|ico|webp)$">
+        Require all granted
+    </FilesMatch>
+    <FilesMatch "^\.">
+        Require all denied
+    </FilesMatch>
+</IfModule>

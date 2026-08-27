@@ -1,0 +1,12 @@
+# Blokir akses langsung ke folder assets
+# Hanya file tertentu yang boleh diakses (css, js, img)
+<IfModule mod_authz_core.c>
+    # Izinkan akses ke file statis
+    <FilesMatch "\.(css|js|svg|png|jpg|jpeg|gif|ico|woff|woff2|ttf|eot)$">
+        Require all granted
+    </FilesMatch>
+    # Tolak akses ke file lain
+    <FilesMatch "^\.">
+        Require all denied
+    </FilesMatch>
+</IfModule>
