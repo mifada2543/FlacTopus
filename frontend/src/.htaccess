@@ -1,0 +1,10 @@
+# Blokir total akses ke folder source React
+# Tidak ada file yang boleh diakses langsung dari browser
+<IfModule mod_authz_core.c>
+    Require all denied
+</IfModule>
+
+<IfModule !mod_authz_core.c>
+    Order allow,deny
+    Deny from all
+</IfModule>

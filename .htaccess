@@ -4,14 +4,20 @@
 
 <IfModule mod_rewrite.c>
     RewriteEngine On
-    RewriteBase /Project_lomba/
+    RewriteBase /FlacTopus/
 
     # ---- Blokir akses langsung ke folder sensitif ----
     # .git (riwayat repo), .github (config CI), scripts & hooks (skrip
     # deploy), backend/controller/logic (logika PHP internal — catatan:
     # backend/controller/api/ tetap boleh diakses), frontend/node_modules
     # (deps), .vscode/.idea (config editor)
-    RewriteRule ^(\.git|\.github|scripts|hooks|backend/controller/logic|frontend/node_modules|\.vscode|\.idea)(/|$) - [F,L]
+    RewriteRule ^(\.git|\.github|scripts|hooks|source|backend/controller/logic|frontend/node_modules|frontend/src|frontend/public|frontend/dist|\.vscode|\.idea)(/|$) - [F,L]
+
+    # ---- Cegah Apache redirect /admin -> /admin/ (serve index.php kosong) ----
+    # Jika request ke folder yang punya index.php tapi itu kosong,
+    # paksa ke SPA route tanpa trailing slash.
+    RewriteCond %{REQUEST_URI} ^/FlacTopus/(admin|classes|analytics|teacher|student|quiz|room)/$
+    RewriteRule ^ /FlacTopus/%1 [R=301,L]
 
     # ---- File/direktori yang benar-benar ada: biarkan ----
     RewriteCond %{REQUEST_FILENAME} -f [OR]

@@ -1,0 +1,35 @@
+# ============================================================
+# frontend/.htaccess — blokir akses langsung ke source code
+# ============================================================
+# Folder frontend/ berisi source React, config, dan .env.
+# Yang BOLEH diakses: folder dist/ (build output SPA).
+# Yang TIDAK boleh: src/, node_modules/, .env, package.json, dll.
+# ============================================================
+
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+
+    # Izinkan akses ke dist/ (build output)
+    RewriteCond %{REQUEST_URI} ^/FlacTopus/frontend/dist/
+    RewriteRule ^ - [L]
+
+    # Blokir akses ke src/, node_modules/, public/
+    RewriteRule ^(src|node_modules|public)(/|$) - [F,L]
+</IfModule>
+
+<IfModule mod_authz_core.c>
+    # Blokir file sensitif
+    <FilesMatch "\.(env|env\.example|env\.local)$">
+        Require all denied
+    </FilesMatch>
+
+    # Blokir config file
+    <FilesMatch "^(package\.json|package-lock\.json|vite\.config\.js|\.oxlintrc\.json)$">
+        Require all denied
+    </FilesMatch>
+
+    # Blokir file backup/editor
+    <FilesMatch "\.(bak|old|orig|save|swp|swo|tmp|log)$">
+        Require all denied
+    </FilesMatch>
+</IfModule>
