@@ -541,4 +541,5 @@ Kontribusi selalu terbuka! Silakan ikuti langkah berikut:
 
 ---
 
-*Project ini dikembangkan untuk kompetisi **OSCAR 3.0 Web Development Competition** oleh tim yang beranggotakan siswa SMA/SMK se-JABODETABEK.*
+*Project ini dikembangkan untuk kompetisi **OSCAR 3.0 Web Development Competition** oleh tim yang beranggotakan 3 orang siswa SMKTI Dwiguna.*
+
