@@ -1,173 +1,160 @@
-# 📋 Deskripsi Project — OSCAR 3.0 Web Development
+# 📋 Changelog Project — FlacTopus AI
 
 **Judul:** Sistem Pendidikan Adaptif "Rainforest of Innovation"
 **Lomba:** OSCAR 3.0 x GDGOC STT NF — Web Development Competition
 **Deadline:** 30 Agustus 2026, 21.00 WIB
 **Babak Final:** 6 September 2026, STT Terpadu Nurul Fikri
+**Live:** https://meel.web.id/
 
 ---
 
-## 🌿 Tentang Project
+## 📝 Daftar Perubahan (Changelog)
 
-Project ini adalah **sistem pendidikan adaptif bertenaga AI** yang memetakan pemahaman murid layaknya *Skill Tree* dalam game RPG. Setiap murid memiliki peta belajar visual interaktif berbentuk graf nodes & edges (dibangun dengan ReactFlow), di mana mereka harus menyelesaikan materi secara berurutan — mirip menyelesaikan quest di game.
+### 🔐 Backend — Soft Delete Ruangan & Peran Admin (28 Agustus 2026 — Sesi 3)
 
-Fitur unggulan utama adalah **Socratic AI Tutor** yang ditenagai Google Gemini: saat murid mengerjakan kuis, AI bertanya balik secara dialogis (bukan sekadar koreksi jawaban), menuntun murid menemukan jawaban sendiri melalui pertanyaan Socrates.
+**Tujuan:** Admin hanya mengelola ruangan terhapus (backup/recovery), bukan mengelola ruangan aktif guru (privasi).
 
----
+#### Database
+| Item | Status | Keterangan |
+| --- | --- | --- |
+| `ruangan.deleted_at` | ✅ Ditambahkan | `TIMESTAMP NULL` — soft delete timestamp |
+| `ruangan.deleted_by` | ✅ Ditambahkan | `INT UNSIGNED NULL` — ID user yang menghapus |
+| `schema_version` | ✅ Updated | v6 |
 
-## 🎯 Masalah yang Dijawab
-
-| Masalah | Solusi |
+#### Backend (PHP)
+| File | Perubahan |
 | --- | --- |
-| Guru sulit memetakan pemahaman individual murid | Skill Tree visual — guru lihat progress tiap node |
-| Belajar tidak adaptif (satu materi untuk semua) | AI tutor Gemini mendeteksi kesalahan & menjelaskan dengan pendekatan berbeda per murid |
-| Materi statis, tidak interaktif | Editor guru drag-and-drop untuk membangun skill tree sendiri |
-| Tidak ada mekanisme evaluasi berkelanjutan | Kuis interaktif (pilihan ganda + isi rumpang) terintegrasi di setiap node |
+| `RuanganLogic.php` | `delete()` → **soft delete** (set `deleted_at`, bukan hard delete) |
+| `RuanganLogic.php` | `restore()` → **baru** — admin pulihkan ruangan dari trash |
+| `RuanganLogic.php` | `forceDelete()` → **baru** — admin hard delete permanen dari trash |
+| `RuanganLogic.php` | `listTrashed()` → **baru** — admin lihat semua ruangan terhapus + sisa hari |
+| `RuanganLogic.php` | `listForUser()` → admin tidak melihat ruangan guru (privacy) |
+| `RuanganLogic.php` | `join()` → blokir gabung ke ruangan yang sudah dihapus |
+| `ruangan.php` | GET `?action=trash` → admin-only: daftar ruangan terhapus |
+| `ruangan.php` | POST `restore` → admin pulihkan ruangan |
+| `ruangan.php` | POST `force_delete` → admin hapus permanen |
+| `admin.php` | POST `restore` → handler restore via admin API |
+| `admin.php` | POST `force_delete` → handler force delete via admin API |
+| `admin.php` | Hapus endpoint `room_stats` (dead code) |
+| `GarbageCollector.php` | `cleanExpiredTrash()` → hard delete ruangan `deleted_at` > 30 hari |
+
+#### Frontend (React)
+| File | Perubahan |
+| --- | --- |
+| `AdminPanel.jsx` | Tab "Kelola Ruangan" → **"Ruangan Terhapus"** |
+| `AdminPanel.jsx` | Hanya tampilkan ruangan soft-deleted (bukan semua ruangan) |
+| `AdminPanel.jsx` | Tombol **"Pulihkan"** & **"Hapus Permanen"** (bukan Detail/Kick) |
+| `AdminPanel.jsx` | Info banner: "Data akan dihapus permanen setelah 30 hari" |
+| `AdminPanel.jsx` | Countdown **"Sisa Hari"** per ruangan |
+| `AdminPanel.jsx` | Tambah tombol **Logout** di header |
+| `AdminPanel.jsx` | Tambah **nama admin** di header (`👋 Nama Admin`) |
+| `AdminPanel.jsx` | Hapus tombol "Kembali" (admin tidak perlu ke `/classes`) |
+| `Login.jsx` | Admin redirect ke `/admin` setelah login (bukan `/classes`) |
+| `auth/auth.php` | `require_guest()` → admin redirect ke `/admin` |
 
 ---
 
-## 🏗️ Arsitektur & Teknologi
+### 🗃️ Backend — Database Migration v4-v6 & Quiz Attempts (28 Agustus 2026 — Sesi 2)
 
-```
-┌─────────────────────────────────────────────────────────┐
-│                    FRONTEND (React)                      │
-│  React + Vite + React Router + ReactFlow + TailwindCSS  │
-│  Pages: Landing, Login, Register, ClassDashboard,       │
-│         TeacherDashboard (Editor Skill Tree),            │
-│         StudentDashboard (Skill Tree Viewer),            │
-│         Quiz, RoomDetail, AdminPanel, ErrorPage          │
-│         (401/403/404/429/500)                           │
-├─────────────────────────────────────────────────────────┤
-│                   BACKEND (PHP Murni)                    │
-│  API JSON: auth/login.php, register.php, session.php,   │
-│            ruangan.php, admin.php, nilai-input.php       │
-│  Logic: LoginRegisterLogic, RuanganLogic, RateLimiter,  │
-│         ActivityLogger                                   │
-├─────────────────────────────────────────────────────────┤
-│                     DATABASE (MySQL)                     │
-│  Tables: users, ruangan, class_members, syllabus,        │
-│          login_attempts, activity_log, schema_version    │
-│  + File JSON per ruangan di storage/ruangan/<id>.json    │
-├─────────────────────────────────────────────────────────┤
-│                    AI (Google Gemini)                     │
-│  Socratic AI Tutor — menuntun murid lewat dialog        │
-│  via frontend/src/utils/aiService.js                     │
-└─────────────────────────────────────────────────────────┘
-```
+**Tujuan:** Fix error "Unknown column 'theme_color'" dan "Table 'quiz_attempts' doesn't exist" saat guru membuat kelas.
 
-### Tech Stack
-
-| Layer | Teknologi | Keterangan |
+#### Database
+| Item | Status | Keterangan |
 | --- | --- | --- |
-| Frontend | React 19 + Vite 8 | SPA dengan React Router v7 |
-| Visualisasi Skill Tree | ReactFlow (@xyflow/react) | Drag-and-drop nodes & edges |
-| UI | Inline styles + CSS custom properties | Dark theme, glass-panel, responsive |
-| AI Tutor | Google Gemini API | Socratic questioning approach |
-| Backend | PHP murni (tanpa framework) | API JSON, session-based auth |
-| Database | MySQL (MariaDB via XAMPP) | 7 tabel + file JSON silabus |
-| Keamanan | CSRF, session hijack detection, dual rate limiter, activity log, RBAC, .htaccess | Berdasarkan referensi MEeL |
-| Build | Vite build → bash build.sh → XAMPP htdocs | |
-| Linting | OxLint | Cepat, ringan |
-| CI/CD | GitHub Actions | Secret scanning |
-| Migrasi | db/migration.php (CLI-only) | Version-based, idempotent |
+| `ruangan.theme_color` | ✅ Ditambahkan | `VARCHAR(50) DEFAULT '#0f172a'` |
+| `class_members.role` | ✅ Ditambahkan | `ENUM('member','admin') DEFAULT 'member'` |
+| `class_members.is_marked` | ✅ Ditambahkan | `TINYINT(1) DEFAULT 0` |
+| `class_members.pinned_at` | ✅ Ditambahkan | `TIMESTAMP NULL` |
+| `quiz_attempts` | ✅ Dibuat | Tabel baru: rekam jawaban murid (score, wrong_answers, tab_switches) |
+| `schema_version` | ✅ Updated | v4 (kolom), v5 (quiz_attempts), v6 (soft delete) |
+
+#### Migration (`db/migration.php`)
+| Versi | Deskripsi |
+| --- | --- |
+| v4 | Tambah kolom `theme_color` (ruangan), `role`/`is_marked`/`pinned_at` (class_members) |
+| v5 | Buat tabel `quiz_attempts` (rekam jawaban murid) |
+| v6 | Tambah kolom `deleted_at`, `deleted_by` ke `ruangan` (soft delete) |
 
 ---
 
-## 📁 Struktur Project
+### 🚀 Deployment — Cloudflare Tunnel & Production Config (28 Agustus 2026 — Sesi 1)
 
-```
-FlacTopus/
-├── frontend/                  # React app (Vite)
-│   ├── src/
-│   │   ├── pages/             # Landing, Login, Register, ClassDashboard,
-│   │   │                      # TeacherDashboard, StudentDashboard, Quiz,
-│   │   │                      # RoomDetail, AdminPanel (3 tabs), ErrorPage
-│   │   ├── components/        # ProtectedRoute (RBAC gate)
-│   │   ├── hooks/             # useAuth (session PHP), useRoomHeartbeat
-│   │   ├── utils/             # api.js, roles.js, aiService.js (Gemini)
-│   │   ├── data/              # mockData.js (template silabus fallback)
-│   │   ├── App.jsx            # Route definitions + RBAC matrix
-│   │   └── index.css          # CSS variables, dark theme, responsive, animations
-│   ├── vite.config.js         # base: '/FlacTopus/'
-│   └── (no .env — API key server-side di auth/config.php)
-├── auth/                      # PHP auth backend
-│   ├── config.php             # DB, session config, security headers (gitignored)
-│   ├── auth.php               # require_auth, session hijacking check, CSRF helpers
-│   ├── login.php              # POST API login + dual rate limiter
-│   ├── register.php           # POST API register (role=student, status=pending)
-│   ├── session.php            # GET session check + CSRF token
-│   ├── logout.php             # POST logout + activity logging
-│   └── config.example.php     # Template config (committed)
-├── backend/controller/
-│   ├── api/
-│   │   ├── ruangan.php        # CRUD ruangan (create, join, delete, syllabus, etc.)
-│   │   ├── admin.php          # Admin: user mgmt, room mgmt, activity logs, stats
-│   │   ├── nilai-input.php    # Input nilai
-│   │   └── csrf.php           # CSRF token endpoint
-│   │   ├── nilai-input.php    # Input nilai
-│   │   └── csrf.php           # CSRF token endpoint
-│   └── logic/
-│       ├── LoginRegisterLogic.php  # Auth business logic
-│       ├── RuanganLogic.php        # Ruangan business logic
-│       ├── RateLimiter.php         # Dual rate limiting (IP + session)
-│       └── ActivityLogger.php      # Audit trail (login, logout, admin actions)
-├── db/
-│   ├── schema.sql             # Full DB schema (7 tables) + demo data
-│   ├── migration.php          # CLI-only version-based migration
-│   └── README.md              # Arsitektur data documentation
-├── storage/ruangan/           # File JSON silabus per ruangan (runtime)
-├── assets/                    # Static assets (favicon, icons)
-├── scripts/scan-secrets.sh    # Security: pre-commit secret scanning
-├── hooks/pre-commit           # Git pre-commit hook
-├── .github/workflows/         # CI: scan-secrets.yml
-├── build.sh                   # Build frontend → copy to root XAMPP
-├── info.md                    # Deskripsi project ini
-└── README.md                  # Main project documentation
-```
+**Tujuan:** Deploy ke production via Cloudflare Tunnel di `meel.web.id`.
+
+#### Konfigurasi
+| Item | Perubahan |
+| --- | --- |
+| `auth/config.php` | `BASE_URL = 'https://meel.web.id'` |
+| `vite.config.js` | `base: '/'` (production) |
+| `.htaccess` | CSP: allow `https://static.cloudflareinsights.com` |
+| `.htaccess` | SPA routing + `RewriteBase /` |
+| `App.jsx` | `basename="/"` (Router) |
+| `build.sh` | Copy file dari `frontend/public/` + hapus `.htaccess` yang memblokir |
+
+#### Frontend
+| File | Perubahan |
+| --- | --- |
+| `templateLibrary.js` | Hapus prefix `/FlacTopus/` dari image paths |
+| `QuizTypeModal.jsx` | Hapus prefix `/FlacTopus/` dari image paths |
+| `api.js` | `RUANGAN_API` & `AUTH_API` pakai `import.meta.env.BASE_URL` |
 
 ---
 
-## 👥 RBAC (Role-Based Access Control)
+### 🔐 Security Audit — Prepared Statements (28 Agustus 2026)
 
-| Role | Deskripsi | Akses |
+**Tujuan:** Pastikan semua query DB menggunakan prepared statements, tidak ada SQL injection vector.
+
+| File | Perubahan |
+| --- | --- |
+| `RateLimiter.php` | `$this->db->exec()` → `prepare()` + `execute()` |
+| `ActivityLogger.php` | Tambah comment penjelas untuk LIMIT/OFFSET `(int)` cast |
+| `db/migration.php` | Tambah `sanitizeId()` regex `[^a-zA-Z0-9_]` untuk raw queries |
+| `db/migration.php` | Tambah `preg_replace` sanitasi untuk `$dbName` |
+
+**Hasil Audit:**
+- ✅ Tidak ada `$_GET` / `$_POST` langsung di SQL
+- ✅ Tidak ada string concat di `exec()` / `query()` (sudah di-fix)
+- ✅ `EMULATE_PREPARES => false` aktif di `config.php`
+- ✅ Semua query DB backend sudah prepared statements
+
+---
+
+### 🐛 Bug Fixes (28 Agustus 2026)
+
+| Masalah | Penyebab | Fix |
 | --- | --- | --- |
-| `guest` | Belum login (role awal semua pengunjung) | Landing page, login, register |
-| `student` | Murid terdaftar (aktif) | Daftar kelas yang diikuti, belajar skill tree, kuis |
-| `teacher` | Guru terdaftar (aktif) | Semua akses student + buat/hapus ruangan, edit silabus |
-| `admin` | Administrator (superuser) | **Akses penuh ke SEMUA** — lihat/hapus/edit semua ruangan guru, kelola user, panel admin |
-
-### RBAC Detail per Aksi
-
-| Aksi | Guest | Student | Teacher (pembuat) | Ketua Kelas | Admin |
-| --- | --- | --- | --- | --- | --- |
-| Lihat ruangan | ❌ | Ruangan diikuti | Ruangan sendiri | — | **SEMUA ruangan** |
-| Buat ruangan | ❌ | ❌ | ✅ | ❌ | ✅ |
-| Hapus ruangan | ❌ | ❌ | ✅ (sendiri) | ❌ | ✅ **semua** |
-| Rename ruangan | ❌ | ❌ | ✅ (sendiri) | ❌ | ✅ **semua** |
-| Edit silabus | ❌ | ❌ | ✅ (sendiri) | ❌ | ✅ **semua** |
-| Lihat members | ❌ | ❌ | ✅ (sendiri) | ✅ (sendiri) | ✅ **semua** |
-| Kick murid | ❌ | ❌ | ✅ (sendiri) | ❌ | ✅ **semua** |
-| Set ketua kelas | ❌ | ❌ | ✅ (sendiri) | ❌ | ✅ **semua** |
-| Mark/Pin murid | ❌ | ❌ | ✅ (sendiri) | ❌ | ✅ **semua** |
-| Analytics | ❌ | ❌ | ✅ (sendiri) | ✅ (sendiri) | ✅ **semua** |
-| Chat history | ❌ | ❌ | ✅ (sendiri) | ❌ | ✅ **semua** |
-| Anti-cheat | ❌ | ❌ | ✅ (sendiri) | ✅ (sendiri) | ✅ **semua** |
-| Panel admin | ❌ | ❌ | ❌ | ❌ | ✅ |
-
-### Flow Autentikasi
-1. User buka app → status `guest` (bisa lihat landing, login, register)
-2. Register → **selalu role `student`** (opsi guru dihapus) → status `pending`
-3. Admin approve → status `active` (bisa login)
-4. Login → session PHP dibuat (`FlacTopus` cookie, httponly, secure, 2 jam lifetime)
-5. **Session hijacking check** → setiap request cek `session_id()` di DB
-6. React cek status via `auth/session.php` → tampilkan UI sesuai role
-7. Idle 30 menit → auto-logout
-8. **Double session prevention** → user sudah login tidak bisa akses /login atau /register (loading screen + redirect)
-9. **Admin Panel** → `/admin` dengan 3 tab: Kelola User, Kelola Ruangan, Activity Log
+| Guru gagal buat kelas | Kolom `theme_color` hilang dari tabel `ruangan` | Ditambah via ALTER TABLE + migration v4 |
+| "Gagal memuat data kuis" | Tabel `quiz_attempts` tidak ada | Dibuat dengan struktur lengkap + migration v5 |
+| Halaman kosong di `meel.web.id` | Base path `/FlacTopus/` tidak cocok dengan production | `base: '/'` + hapus prefix di image paths |
+| CSP block Cloudflare beacon | `script-src 'self'` memblokir Cloudflare analytics | Tambah `https://static.cloudflareinsights.com` ke CSP |
+| Router basename error | `basename="/FlacTopus"` hardcoded di App.jsx | Diubah ke `basename="/"` |
+| Logo tidak muncul | Cloudflare cache serve response lama (535 bytes HTML) | User purge Cloudflare cache |
+| `.htaccess` memblokir assets | `frontend/public/.htaccess` tertimpa ke root via rsync | `build.sh` hapus `.htaccess` dari public folder copy |
+| Admin bisa kelola ruangan guru | `listForUser()` untuk admin return SEMUA ruangan | Admin return `[]` (privacy), hanya akses via trash |
 
 ---
 
-## 🗃️ Database Schema (MySQL)
+### 🔐 Keamanan yang Diimplementasikan
+
+| # | Fitur | Status |
+| --- | --- | --- |
+| 1 | Session Hijacking Detection | ✅ `last_session_id` di tabel users |
+| 2 | Dual Rate Limiting (IP + Session) | ✅ Login: 5/15menit, Register: 3/1jam |
+| 3 | Activity Logger (Audit Trail) | ✅ Semua aksi dicatat |
+| 4 | Secure Cookie | ✅ httponly, samesite=Lax, secure=dynamic |
+| 5 | Security Headers | ✅ nosniff, DENY, CORS, HSTS |
+| 6 | User Approval Workflow | ✅ Register → pending → admin approve |
+| 7 | CSRF Protection | ✅ Token wajib untuk semua POST |
+| 8 | SQL Injection Prevention | ✅ Prepared statements (PDO) |
+| 9 | Soft Delete Ruangan | ✅ 30 hari retention, admin bisa restore |
+| 10 | Admin Privacy | ✅ Admin tidak lihat ruangan aktif guru |
+| 11 | Garbage Collector | ✅ Hard delete trashed rooms > 30 hari |
+| 12 | Admin Redirect | ✅ Login → `/admin` langsung |
+| 13 | Logout di Admin Panel | ✅ Tombol keluar + nama admin di header |
+
+---
+
+## 🗃️ Database Schema (Final — v6)
 
 ### Tabel `users`
 | Kolom | Tipe | Keterangan |
@@ -175,7 +162,7 @@ FlacTopus/
 | `id` | INT UNSIGNED PK | Auto increment |
 | `name` | VARCHAR(100) | Nama lengkap |
 | `email` | VARCHAR(150) UNIQUE | Dipakai login |
-| `password_hash` | VARCHAR(255) | Bcrypt (PHP `password_hash()`) |
+| `password_hash` | VARCHAR(255) | Bcrypt |
 | `role` | ENUM('student','teacher','admin') | Default: 'student' |
 | `status` | ENUM('pending','active','rejected') | Default: 'pending' |
 | `last_session_id` | VARCHAR(128) | Session hijacking detection |
@@ -186,44 +173,65 @@ FlacTopus/
 | --- | --- | --- |
 | `id` | INT UNSIGNED PK | Auto increment |
 | `nama` | VARCHAR(150) | Nama ruangan/mapel |
-| `kode_ruangan` | CHAR(6) UNIQUE | Kode join murid (6 karakter) |
-| `user_id` | INT UNSIGNED FK → users.id | Guru pembuat (CASCADE) |
+| `kode_ruangan` | CHAR(6) UNIQUE | Kode join murid |
+| `user_id` | INT UNSIGNED FK | Guru pembuat (CASCADE) |
+| `theme_color` | VARCHAR(50) | Tema warna UI (default: #0f172a) |
 | `created_at` | TIMESTAMP | Auto |
-| `last_active_at` | TIMESTAMP | Reset hitung mundur 2 jam |
+| `last_active_at` | TIMESTAMP | Reset timer 2 jam |
+| `deleted_at` | TIMESTAMP NULL | Soft delete timestamp |
+| `deleted_by` | INT UNSIGNED NULL | ID user yang menghapus |
 
 ### Tabel `class_members`
 | Kolom | Tipe | Keterangan |
 | --- | --- | --- |
 | `id` | INT UNSIGNED PK | Auto increment |
-| `ruangan_id` | INT UNSIGNED FK → ruangan.id | CASCADE |
-| `user_id` | INT UNSIGNED FK → users.id | CASCADE |
+| `ruangan_id` | INT UNSIGNED FK | CASCADE |
+| `user_id` | INT UNSIGNED FK | CASCADE |
 | `joined_at` | TIMESTAMP | Auto |
-| `last_seen_at` | TIMESTAMP | Heartbeat terakhir |
+| `last_seen_at` | TIMESTAMP NULL | Heartbeat terakhir |
+| `role` | ENUM('member','admin') | Admin = Ketua Kelas |
+| `is_marked` | TINYINT(1) | Tanda khusus murid |
+| `pinned_at` | TIMESTAMP NULL | Waktu dipin |
 
 ### Tabel `syllabus`
 | Kolom | Tipe | Keterangan |
 | --- | --- | --- |
 | `id` | INT UNSIGNED PK | Auto increment |
-| `ruangan_id` | INT UNSIGNED FK → ruangan.id | UNIQUE, CASCADE |
+| `ruangan_id` | INT UNSIGNED FK | UNIQUE, CASCADE |
 | `file_path` | VARCHAR(255) | Pointer ke `storage/ruangan/<id>.json` |
 | `updated_at` | TIMESTAMP | Auto update |
+
+### Tabel `quiz_attempts`
+| Kolom | Tipe | Keterangan |
+| --- | --- | --- |
+| `id` | INT UNSIGNED PK | Auto increment |
+| `ruangan_id` | INT UNSIGNED FK | Kelas tempat kuis |
+| `user_id` | INT UNSIGNED FK | Murid yang mengerjakan |
+| `node_id` | VARCHAR(100) | ID node Skill Tree |
+| `node_label` | VARCHAR(255) | Judul node |
+| `score` | INT | Nilai 0-100 |
+| `total_questions` | INT | Total soal |
+| `correct_answers` | INT | Jawaban benar |
+| `wrong_answers` | JSON NULL | Pertanyaan salah |
+| `tab_switches` | INT | Deteksi pindah tab (anti-cheat) |
+| `created_at` | TIMESTAMP | Auto |
 
 ### Tabel `login_attempts`
 | Kolom | Tipe | Keterangan |
 | --- | --- | --- |
 | `id` | INT UNSIGNED PK | Auto increment |
 | `ip_address` | VARCHAR(45) | IPv4 atau IPv6 |
-| `context` | ENUM('login','register') | Context rate limit |
+| `context` | VARCHAR(20) | 'login' atau 'register' |
 | `attempted_at` | TIMESTAMP | Auto |
 
 ### Tabel `activity_log`
 | Kolom | Tipe | Keterangan |
 | --- | --- | --- |
 | `id` | INT UNSIGNED PK | Auto increment |
-| `user_id` | INT UNSIGNED FK → users.id | NULL = system event |
-| `action` | VARCHAR(50) | login, logout, approve_user, dll. |
+| `user_id` | INT UNSIGNED FK NULL | NULL = system event |
+| `action` | VARCHAR(100) | login, logout, approve_user, dll. |
 | `ip_address` | VARCHAR(45) | IP pelaku |
-| `user_agent` | TEXT | Browser/device info |
+| `user_agent` | VARCHAR(255) | Browser/device info |
 | `created_at` | TIMESTAMP | Auto |
 
 ### Tabel `schema_version`
@@ -233,241 +241,194 @@ FlacTopus/
 | `description` | VARCHAR(255) | Deskripsi migrasi |
 | `applied_at` | TIMESTAMP | Kapan dijalankan |
 
-> **Catatan desain:** Isi skill tree (nodes/edges) disimpan sebagai **file JSON per ruangan** di `storage/ruangan/`, bukan di kolom DB. DB hanya menyimpan pointer kecil.
+---
+
+## 👥 RBAC (Role-Based Access Control — Updated)
+
+| Role | Deskripsi | Akses |
+| --- | --- | --- |
+| `guest` | Belum login | Landing page, login, register |
+| `student` | Murid terdaftar (aktif) | Kelas yang diikuti, belajar, kuis |
+| `teacher` | Guru terdaftar (aktif) | Semua akses student + buat/hapus ruangan, edit silabus |
+| `admin` | Administrator | Kelola user, pulihkan ruangan terhapus, activity log |
+
+### RBAC Detail per Aksi (Updated)
+
+| Aksi | Guest | Student | Teacher (pembuat) | Ketua Kelas | Admin |
+| --- | --- | --- | --- | --- | --- |
+| Lihat ruangan | ❌ | Ruangan diikuti | Ruangan sendiri | — | ❌ (privacy) |
+| Buat ruangan | ❌ | ❌ | ✅ | ❌ | ❌ |
+| Hapus ruangan | ❌ | ❌ | ✅ (soft delete sendiri) | ❌ | ❌ |
+| Rename ruangan | ❌ | ❌ | ✅ (sendiri) | ❌ | ❌ |
+| Edit silabus | ❌ | ❌ | ✅ (sendiri) | ❌ | ❌ |
+| Lihat members | ❌ | ❌ | ✅ (sendiri) | ✅ (sendiri) | ❌ |
+| Kick murid | ❌ | ❌ | ✅ (sendiri) | ❌ | ❌ |
+| Set ketua kelas | ❌ | ❌ | ✅ (sendiri) | ❌ | ❌ |
+| Mark/Pin murid | ❌ | ❌ | ✅ (sendiri) | ❌ | ❌ |
+| Analytics | ❌ | ❌ | ✅ (sendiri) | ✅ (sendiri) | ❌ |
+| Chat history | ❌ | ❌ | ✅ (sendiri) | ❌ | ❌ |
+| Anti-cheat | ❌ | ❌ | ✅ (sendiri) | ✅ (sendiri) | ❌ |
+| **Kelola User** | ❌ | ❌ | ❌ | ❌ | ✅ |
+| **Lihat Ruangan Terhapus** | ❌ | ❌ | ❌ | ❌ | ✅ |
+| **Restore Ruangan** | ❌ | ❌ | ❌ | ❌ | ✅ |
+| **Force Delete Ruangan** | ❌ | ❌ | ❌ | ❌ | ✅ |
+| **Activity Log** | ❌ | ❌ | ❌ | ❌ | ✅ |
+
+### Flow Soft Delete Ruangan
+```
+Guru hapus ruangan → Soft delete (deleted_at terisi)
+        ↓
+Admin lihat di tab "Ruangan Terhapus"
+        ↓
+Guru req ke admin → Admin klik "Pulihkan" → Ruangan aktif kembali
+        ↓
+atau: Setelah 30 hari → GarbageCollector hard delete permanen
+```
+
+### Flow Autentikasi
+1. User buka app → status `guest`
+2. Register → **selalu role `student`** → status `pending`
+3. Admin approve → status `active`
+4. Login → **admin redirect ke `/admin`**, guru/murid redirect ke `/classes`
+5. Session PHP dibuat (cookie `FlacTopus`, httponly, 2 jam lifetime)
+6. Session hijacking check → setiap request cek `session_id()` di DB
+7. Idle 30 menit → auto-logout
+8. Double session prevention → user sudah login → redirect
 
 ---
 
-## 🔧 API Endpoints
+## 🔧 API Endpoints (Updated)
 
-### Auth (auth/*.php)
+### Auth (`auth/*.php`)
 | Endpoint | Method | Deskripsi |
 | --- | --- | --- |
 | `auth/session.php` | GET | Cek status login + ambil CSRF token |
-| `auth/login.php` | POST | Login (email + password) + dual rate limiter |
-| `auth/register.php` | POST | Register (name, email, password) → role=student, status=pending |
+| `auth/login.php` | POST | Login + dual rate limiter |
+| `auth/register.php` | POST | Register → status=pending |
 | `auth/logout.php` | POST | Logout + activity logging |
 
-### Ruangan (backend/controller/api/ruangan.php)
+### Ruangan (`backend/controller/api/ruangan.php`)
 | Aksi | Method | Role | Deskripsi |
 | --- | --- | --- | --- |
-| `list` | GET | Semua (login) | Daftar ruangan (admin lihat **SEMUA**, guru lihat sendiri) |
-| `create` | POST | teacher/admin | Buat ruangan baru |
-| `join` | POST | student/admin | Gabung via kode 6 karakter |
-| `delete` | POST | pemilik + admin | Hapus ruangan permanen (admin bisa hapus ruangan guru) |
-| `rename` | POST | pemilik + admin | Ubah nama ruangan (admin bisa rename ruangan guru) |
-| `kick` | POST | pemilik + admin | Keluarkan murid (admin bisa kick dari ruangan guru) |
-| `set_admin` | POST | pemilik + admin | Atur ketua kelas (admin bisa set di ruangan guru) |
-| `toggle_mark` | POST | pemilik + admin | Tandai murid (admin bisa mark di ruangan guru) |
-| `toggle_pin` | POST | pemilik + admin | Pin murid (admin bisa pin di ruangan guru) |
-| `touch` | POST | anggota + admin | Reset timer 2 jam |
-| `syllabus` | GET/POST | anggota + pemilik + admin | Baca/simpan skill tree |
-| `heartbeat` | POST | anggota + admin | "Ada orang disini?" |
+| `list` | GET | teacher/student | Daftar ruangan aktif (admin return kosong) |
+| `trash` | GET | admin | Daftar ruangan terhapus + sisa hari |
+| `create` | POST | teacher | Buat ruangan baru |
+| `join` | POST | student | Gabung via kode 6 karakter |
+| `delete` | POST | pemilik | **Soft delete** ruangan (30 hari retention) |
+| `restore` | POST | admin | Pulihkan ruangan dari trash |
+| `force_delete` | POST | admin | Hapus permanen dari trash |
+| `rename` | POST | pemilik | Ubah nama ruangan |
+| `kick` | POST | pemilik | Keluarkan murid |
+| `set_admin` | POST | pemilik | Atur ketua kelas |
+| `toggle_mark` | POST | pemilik | Tandai murid |
+| `toggle_pin` | POST | pemilik | Pin murid |
+| `touch` | POST | anggota | Keep-alive |
+| `syllabus` | GET/POST | anggota/pemilik | Baca/simpan skill tree |
+| `heartbeat` | POST | anggota | "Ada orang disini?" |
 
-### Admin (backend/controller/api/admin.php)
+### Admin (`backend/controller/api/admin.php`)
 | Aksi | Method | Role | Deskripsi |
 | --- | --- | --- | --- |
-| `list` | GET | admin | Daftar semua user + filter (search, role, status) |
-| `stats` | GET | admin | Statistik jumlah user per role & status |
-| `room_stats` | GET | admin | Statistik ruangan (total, online, active, expired) + detail |
-| `approve` | POST | admin | Setujui user pending → active + log |
-| `reject` | POST | admin | Tolak user pending → rejected + log |
-| `change_role` | POST | admin | Ubah role user + log |
-| `delete` | POST | admin | Hapus user permanen (CASCADE) + log |
-| `reset_password` | POST | admin | Reset password user + log |
-| `activity_logs` | GET | admin | Daftar activity log + filter + pagination |
-| `activity_stats` | GET | admin | Statistik activity log |
+| `list` | GET | admin | Daftar semua user + filter |
+| `stats` | GET | admin | Statistik user per role & status |
+| `approve` | POST | admin | Setujui user pending |
+| `reject` | POST | admin | Tolak user pending |
+| `change_role` | POST | admin | Ubah role user |
+| `delete` | POST | admin | Hapus user permanen |
+| `reset_password` | POST | admin | Reset password user |
 | `kick` | POST | admin | Keluarkan anggota dari ruangan |
+| `restore` | POST | admin | Pulihkan ruangan dari trash |
+| `force_delete` | POST | admin | Hapus permanen ruangan dari trash |
+| `activity_logs` | GET | admin | Audit trail + filter + pagination |
+| `activity_stats` | GET | admin | Statistik activity log |
 
----
-
-## 🎮 Fitur Utama
-
-### 1. Skill Tree Visual (ReactFlow)
-- **Guru** membangun skill tree dengan drag-and-drop: tambah node, hubungkan edges, edit materi/kuis per node
-- **Murid** melihat skill tree sebagai peta belajar: node locked → in-progress → completed
-- Menyimpan progress ke database (file JSON per ruangan)
-
-### 2. Kuis Interaktif
-- **Pilihan Ganda:** 4 opsi, pilih salah satu
-- **Isi Rumpang (Fill-in-the-blank):** Model Duolingo — drag kata ke tempat yang kosong
-- Setiap kuis bisa dilampiri gambar (max 250KB, base64)
-
-### 3. Socratic AI Tutor (Google Gemini)
-- Saat murid salah menjawab kuis, AI tidak langsung memberi jawaban
-- AI bertanya balik: "Mengapa kamu memilih X? Apa yang kamu pahami dari konsep ini?"
-- Menuntun murid menemukan jawaban sendiri melalui dialog
-- Bisa dikustomisasi per-node lewat "Prompt Khusus AI" di editor guru
-
-### 4. Sistem Ruangan
-- Guru buat ruangan → dapat kode 6 karakter unik
-- Murid gabung pakai kode → otomatis masuk ke skill tree guru
-- Ruangan bersifat **permanen** (tidak dihapus otomatis)
-- Heartbeat: browser yang terbuka di ruangan mengirim sinyal tiap 3 menit
-
-### 5. Panel Admin (Tab Navigation)
-- **👥 Tab Kelola User:** Daftar semua user, filter/search, approve/reject registrasi, ubah role, reset password, hapus user
-- **🏠 Tab Kelola Ruangan:** Statistik ruangan (total, online, active, expired), tabel ruangan + countdown, detail modal + kelola anggota, kick member, hapus ruangan
-- **📊 Tab Activity Log:** Audit trail semua aksi (login, logout, admin actions) + filter aksi/user, pagination, auto-refresh 15 detik, browser detection
-- **Dashboard Statistik:** Cards jumlah user per role & status (di setiap tab)
-
-### 6. Error Handling (Universal Error Pages)
-- **401** — Akses Ditolak (belum login): tampilkan tombol Login
-- **403** — Dilarang Masuk (role salah): tidak ada info halaman yang ada
-- **404** — Halaman Tidak Ditemukan: URL tidak dikenal
-- **429** — Terlalu Banyak Permintaan: rate limited
-- **500** — Kesalahan Server: error internal
-
----
-
-## 🔐 Sistem Keamanan
-
-> Keamanan berdasarkan referensi project MEeL (`/opt/lampp/htdocs/MEeL`), diimplementasikan ke project ini.
-
-### 1. Session Hijacking Detection
-- Kolom `last_session_id` di tabel `users` — setiap request cek, jika session beda → session dihancurkan
-- Admin dikecualikan (tidak di-logout saat multi-tab)
-
-### 2. Dual Rate Limiting (Session + IP)
-| Context | Maks Percobaan | Jendela Waktu | Keterangan |
+### Quiz (`backend/controller/api/quiz.php`)
+| Aksi | Method | Role | Deskripsi |
 | --- | --- | --- | --- |
-| `login` | 5 per IP | 15 menit | Anti brute force password |
-| `register` | 3 per IP | 1 jam | Anti spam akun |
-
-- **Session-based:** `$_SESSION['login_fail_count']` — lock 5 menit setelah 5 gagal
-- **IP-based:** Tabel `login_attempts` — track semua percobaan
-- **Loopback exemption:** Localhost (127.0.0.1, ::1, localhost) bebas rate limit untuk dev
-- **Reset:** Saat login/register berhasil → kedua counter di-reset
-
-### 3. Activity Logger (Audit Trail)
-| Event | Keterangan |
-| --- | --- |
-| `login` | Login berhasil |
-| `login_failed` | Login gagal (password salah) |
-| `rate_limited` | IP/session di-lock karena terlalu banyak gagal |
-| `logout` | Logout |
-| `register` | Registrasi baru |
-| `register_failed` | Registrasi gagal |
-| `approve_user` | Admin menyetujui user |
-| `reject_user` | Admin menolak user |
-| `change_role` | Admin mengubah role |
-| `delete_user` | Admin menghapus user |
-| `reset_password` | Admin reset password |
-
-### 4. Secure Cookie
-- `cookie_httponly = true` → JavaScript tidak bisa baca
-- `cookie_samesite = 'Lax'` → cookie tidak dikirim saat cross-site
-- `cookie_secure = dynamic` → otomatis `true` jika HTTPS
-- `cookie_path = /FlacTopus/` → scope spesifik
-
-### 5. Security Headers
-| Header | Nilai | Fungsi |
-| --- | --- | --- |
-| `X-Content-Type-Options` | `nosniff` | Cegah MIME sniffing |
-| `X-Frame-Options` | `DENY` | Cegah clickjacking |
-| `X-XSS-Protection` | `1; mode=block` | Legacy XSS filter |
-| `Referrer-Policy` | `strict-origin-when-cross-origin` | Kontrol referrer |
-| `Permissions-Policy` | `camera=(), microphone=(), geolocation=()` | Blokir fitur browser |
-| `Cross-Origin-Opener-Policy` | `same-origin` | Isolasi origin |
-| `Strict-Transport-Security` | `max-age=15552000` (HTTPS only) | HSTS |
-
-### 6. Back URL Validation
-- Validasi `HTTP_REFERER` sebelum redirect setelah login
-- Host referer harus cocok dengan `BASE_URL`
-- Referer ke halaman login/register ditolak (cegah loop)
-- Fallback ke `/classes` jika tidak valid
-
-### 7. .htaccess — Folder Protection
-| Folder | Proteksi |
-| --- | --- |
-| `/` (root) | SPA routing + blokir file sensitif |
-| `assets/*` | Izinkan hanya css/js/img |
-| `auth/` | Blokir config/settings |
-| `backend/controller/logic/` | **DENIED** — logika internal |
-| `backend/controller/api/` | Izinkan API endpoints |
-| `db/` | **DENIED** — migration/schema |
-| `hooks/` | **DENIED** — git hooks |
-| `scripts/` | **DENIED** — shell scripts |
-| `storage/*` | **DENIED** — file JSON + build artifacts |
-
-### 8. Input Validation & Protection
-- Password hash: Bcrypt (`password_hash()` + `password_verify()`)
-- CSRF token: wajib untuk semua POST request (`X-CSRF-Token` header)
-- Email validation: regex server-side
-- Name validation: min 3 karakter
-- Password validation: min 8 karakter
-- SQL injection prevention: prepared statements (PDO)
-- Register = **selalu student** (role dari client di-override server-side)
+| `analytics` | GET | guru/ketua | Rangkuman kelas |
+| `analytics_trend` | GET | guru/ketua | Grafik tren nilai |
+| `analytics_participation` | GET | guru/ketua | Partisipasi murid |
+| `analytics_leaderboard` | GET | guru/ketua | Peringkat murid |
+| `analytics_mistakes` | GET | guru/ketua | Soal sering salah |
+| `analytics_cheating` | GET | guru/ketua | Deteksi pindah tab |
+| `student_progress` | GET | murid | Progress kuis murid |
+| `chat_history` | GET | guru | Riwayat chat AI murid |
+| `submit` | POST | murid | Submit jawaban kuis |
+| `save_chat` | POST | murid/guru | Simpan riwayat chat AI |
 
 ---
 
-## 🔄 Database Migration
+## 📁 Struktur Project (Updated)
 
-### Cara Pakai
-```bash
-# Jalankan migration (CLI-only)
-php db/migration.php
-
-# Output:
-# ✅ Database project_lomba (MySQL)
-# 📋 Migrasi v1: Tabel users, ruangan, class_members, syllabus
-# 📋 Migrasi v2: Tabel login_attempts
-# 📋 Migrasi v3: Tabel activity_log
-# ✅ Database sudah versi terbaru (v3).
-# 📋 Tabel:
-#    - activity_log (0 baris)
-#    - class_members (1 baris)
-#    - login_attempts (0 baris)
-#    - ruangan (1 baris)
-#    - schema_version (3 baris)
-#    - syllabus (0 baris)
-#    - users (3 baris)
+```
+FlacTopus/
+├── frontend/                  # React app (Vite)
+│   ├── src/
+│   │   ├── pages/             # Landing, Login, Register, ClassDashboard,
+│   │   │                      # TeacherDashboard, StudentDashboard, Quiz,
+│   │   │                      # RoomDetail, AdminPanel (3 tabs), ErrorPage
+│   │   ├── components/        # ProtectedRoute, quiz/*, analytics/*
+│   │   ├── hooks/             # useAuth (session PHP), useRoomHeartbeat
+│   │   ├── utils/             # api.js, roles.js, aiService.js, sounds.js
+│   │   ├── data/              # mockData.js, templateLibrary.js
+│   │   ├── App.jsx            # Route definitions + RBAC matrix
+│   │   └── index.css          # CSS variables, dark theme, responsive
+│   ├── vite.config.js         # base: '/' (production)
+│   └── (no .env — API key server-side di auth/config.php)
+├── auth/                      # PHP auth backend
+│   ├── config.php             # DB, session config, security headers, GEMINI_API_KEY
+│   ├── auth.php               # require_auth, session hijacking, CSRF, RBAC
+│   ├── login.php              # POST API login + dual rate limiter
+│   ├── register.php           # POST API register (status=pending)
+│   ├── session.php            # GET session check + CSRF token
+│   ├── logout.php             # POST logout + activity logging
+│   └── config.example.php     # Template config (committed)
+├── backend/controller/
+│   ├── api/
+│   │   ├── ruangan.php        # CRUD ruangan + trash management
+│   │   ├── admin.php          # Admin: user mgmt, restore/force_delete, activity logs
+│   │   ├── quiz.php           # API kuis + analytics + anti-cheat
+│   │   ├── gemini.php         # Backend proxy Gemini API
+│   │   ├── nilai-input.php    # Input nilai
+│   │   └── csrf.php           # CSRF token endpoint
+│   ├── logic/
+│   │   ├── LoginRegisterLogic.php  # Auth business logic
+│   │   ├── RuanganLogic.php        # Ruangan + soft delete + trash management
+│   │   ├── RateLimiter.php         # Dual rate limiting (IP + session)
+│   │   ├── ActivityLogger.php      # Audit trail (login, logout, admin actions)
+│   │   └── GarbageCollector.php    # Auto-clean: activity_log, orphaned files, trashed rooms
+│   └── autoloader.php
+├── db/
+│   ├── migration.php          # CLI-only version-based migration (v1-v6)
+│   └── README.md              # Arsitektur data documentation
+├── storage/
+│   ├── ruangan/               # File JSON silabus per ruangan
+│   ├── chat/                  # File JSON riwayat chat AI per murid
+│   ├── .gc_last_run           # Timestamp GC terakhir
+│   └── gc.log                 # Log Garbage Collector
+├── scripts/
+│   ├── gc.php                 # CLI manual trigger untuk Garbage Collector
+│   └── scan-secrets.sh        # Security: pre-commit secret scanning
+├── hooks/pre-commit           # Git pre-commit hook
+├── .github/workflows/         # CI: scan-secrets.yml
+├── build.sh                   # Build frontend → copy to root XAMPP
+├── info.md                    # Changelog project ini
+└── README.md                  # Main project documentation
 ```
 
-### Fitur Migration
-| Fitur | Keterangan |
-| --- | --- |
-| CLI Only | `PHP_SAPI !== 'cli'` → 403 Forbidden di browser |
-| Version-based | Tabel `schema_version` lacak versi |
-| Idempotent | Bisa dijalankan berulang kali tanpa error |
-| Safe | Tidak DROP/DELETE data yang ada |
-
 ---
 
-## 📱 Responsive Design
+## 📊 Status Deployment
 
-| Breakpoint | Perubahan |
+| Item | Status |
 | --- | --- |
-| ≤ 480px | Glass panel padding kompak, auth form kompak, role grid 1 kolom |
-| ≤ 640px | Header stack vertikal, stats grid 2 kolom, admin header vertikal |
-| ≤ 768px | Landing bg-glow resize, side-panel full-width, quiz 1 kolom |
-| ≤ 400px | Stats grid 1 kolom |
-| Touch devices | Semua tombol/input min-height 44px |
-| Safe area | Padding bottom untuk phone dengan notch |
-
-### Anti Double Session
-- User sudah login → buka `/login` atau `/register` → **loading screen** → redirect ke `/classes`
-- Tidak ada flash halaman login/register
-
----
-
-## 🚀 Cara Menjalankan
-
-### Prasyarat
-- XAMPP/LAMPP (Apache + MySQL)
-- Node.js 18+ (untuk build frontend)
-- Database `project_lomba`
-
-### Setup
-```bash
-# 1. Import/migrate database
-php db/migration.php
-
-# 2. Build frontend
-bash build.sh
-
-# 3. Buka di browser
-# http://localhost/FlacTopus/
-```
+| Live URL | https://meel.web.id/ |
+| Cloudflare Tunnel | ✅ Aktif (tunnel ID: 0a37adbc) |
+| Apache Vhost | ✅ Route `meel.web.id` → `/opt/lampp/htdocs/FlacTopus` |
+| MySQL | ✅ Running (port 3306) |
+| Database | ✅ `project_lomba` (v6, 8 tabel) |
+| Node.js | ✅ v22 (via nvm) |
+| Config | ✅ `auth/config.php` (BASE_URL = https://meel.web.id) |
 
 ### Akun Demo
 | Akun | Email | Password | Role | Status |
@@ -476,139 +437,6 @@ bash build.sh
 | Guru | guru@example.com | password123 | teacher | active |
 | Murid | murid@example.com | password123 | student | active |
 
-### Development Mode
-```bash
-cd frontend
-npm install
-npm run dev
-# Buka http://localhost:5173/FlacTopus/
-```
-
-### Build Produksi
-```bash
-bash build.sh
-# Output: index.html + node-assets/ di root project
-```
-
 ---
 
-## 📊 Kriteria Penilaian OSCAR 3.0
-
-| Kriteria | Bobot | Status |
-| --- | --- | --- |
-| Kesesuaian solusi dengan permasalahan | 15% | ✅ Pendidikan adaptif + AI tutor |
-| Fungsionalitas & kelengkapan fitur | 20% | ✅ CRUD, search, RBAC, kuis, AI, admin panel |
-| UI/UX & responsive design | 10% | ✅ Dark theme, glass-panel, mobile-ready, error pages |
-| Kualitas source code | 15% | ✅ Organized, linted, documented, migration system |
-| Inovasi & nilai tambah | 10% | ✅ Skill tree RPG + Socratic AI + activity log |
-| Performance, security, accessibility | 10% | ✅ Dual rate limiter, session hijack detection, CSRF, activity log, .htaccess |
-| Dokumentasi & presentasi | 10% | ✅ README, ROADMAP, info.md, proposal |
-| **Bonus: Bukti landasan masalah** | 10% | 🔄 Belum |
-
----
-
-## 📝 Catatan Teknis
-
-- **Build workflow:** `bash build.sh` → Vite build → copy `index.html` + `node-assets/` ke root → XAMPP serve
-- **Root `index.html` & `node-assets/`** adalah artefak build (di-gitignore) — sumber selalu di `frontend/`
-- **Storage silabus:** File JSON di `storage/ruangan/<id>.json` (di-deny .htaccess, runtime di-ignore git)
-- **AI Key:** `GEMINI_API_KEY` di `auth/config.php` (server-side, tidak ter-expose ke frontend)
-- **Password:** Semua di-hash bcrypt; demo password = `password123`
-- **Timezone:** MySQL timezone = WIB (+07:00)
-- **Register:** Selalu role `student` — guru/admin ditambahkan via Panel Admin
-
----
-
-*Project ini dikembangkan untuk kompetisi OSCAR 3.0 Web Development Competition oleh tim yang beranggotakan siswa SMA/SMK se-JABODETABEK.*
-
----
-
-## 📝 Daftar File yang Diubah (Sesi 27 Agustus 2026)
-
-### 🔐 Backend (PHP)
-| File | Status | Perubahan |
-| --- | --- | --- |
-| `auth/config.php` | ✏️ Edit | `BASE_URL` → `/FlacTopus`, `SESSION_NAME` → `FlacTopus` |
-| `auth/config.example.php` | ✏️ Edit | `SESSION_NAME` → `FlacTopus` |
-| `auth/auth.php` | ✏️ Edit | Session hijacking detection di `require_auth_json()` |
-| `auth/login.php` | ✏️ Edit | Dual rate limiter + activity logger + session ID save |
-| `auth/register.php` | ✏️ Edit | Rate limiter + role=student + status=pending |
-| `backend/controller/logic/LoginRegisterLogic.php` | ✏️ Edit | Register → `status='pending'` + login cek status |
-| `backend/controller/logic/RuanganLogic.php` | ✏️ Edit | RBAC: `isOwnerOrSystemAdmin()` — guru hanya aksi di ruangan sendiri |
-| `backend/controller/logic/RateLimiter.php` | 🆕 Baru | Rate limiter IP-based (login 5/15menit, register 3/1jam) |
-| `backend/controller/logic/ActivityLogger.php` | 🆕 Baru | Audit trail (login, logout, admin actions) |
-| `backend/controller/api/admin.php` | ✏️ Edit | Endpoint: `room_stats`, `activity_logs`, `activity_stats`, `kick` |
-| `backend/controller/api/quiz.php` | ✏️ Edit | Endpoint: `save_chat` (POST), `chat_history` (GET), `analytics_cheating` (GET) |
-| `backend/controller/api/gemini.php` | 🆕 Baru | Backend proxy Gemini API — API key tidak pernah keluar dari server |
-| `backend/controller/logic/GarbageCollector.php` | 🆕 Baru | Auto-clean activity_log, orphaned files, stale sessions |
-| `scripts/gc.php` | 🆕 Baru | CLI manual trigger untuk Garbage Collector |
-| `auth/logout.php` | ✏️ Edit | Clear last_session_id + log aktivitas logout |
-| `auth/config.php` | ✏️ Edit | Tambah `GEMINI_API_KEY` (server-side) + Auto GC |
-| `db/migration.php` | 🔄 Replace | Synced dari source — migrasi v3 + tabel `ai_chat_history` |
-| `backend/controller/logic/GarbageCollector.php` | 🆕 Baru | Auto-clean activity_log, orphaned files, stale sessions |
-| `backend/controller/api/gemini.php` | 🆕 Baru | Backend proxy Gemini API — API key tidak pernah keluar dari server |
-| `scripts/gc.php` | 🆕 Baru | CLI manual trigger untuk Garbage Collector |
-| `.htaccess` | ✏️ Edit | `RewriteBase` → `/FlacTopus/` |
-
-### 🎨 Frontend (React)
-| File | Status | Perubahan |
-| --- | --- | --- |
-| `frontend/src/pages/Login.jsx` | 🔄 Replace | Loading screen + rate limit warning + pending approval |
-| `frontend/src/pages/Register.jsx` | 🔄 Replace | Loading screen + rate limit + role fix + pending message |
-| `frontend/src/pages/ErrorPage.jsx` | 🆕 Baru | Halaman error interaktif (401/403/404/429/500) |
-| `frontend/src/pages/AdminPanel.jsx` | 🔄 Replace | 3 tab: User + Ruangan + Activity Log |
-| `frontend/src/pages/ClassDashboard.jsx` | ✏️ Edit | Tombol admin panel (role=admin) + fix join code maxLength |
-| `frontend/src/pages/RoomDetail.jsx` | ✏️ Edit | Tombol chat history per murid + modal riwayat |
-| `frontend/src/pages/Quiz.jsx` | ✏️ Edit | Modularisasi — import dari `components/quiz/*` + `utils/sounds.js` |
-| `frontend/src/components/StudentAIAssistantModal.jsx` | ✏️ Edit | Simpan chat ke backend (`save_chat`) |
-| `frontend/src/components/quiz/BossBackground.jsx` | 🆕 Baru | Boss fight background (Rive animation) |
-| `frontend/src/components/quiz/AiMascot.jsx` | 🆕 Baru | AI mascot (Rive animation, 3 state) |
-| `frontend/src/components/quiz/IceBreakingCharacter.jsx` | 🆕 Baru | Karakter mini-game ice breaking |
-| `frontend/src/components/quiz/IceBreakingView.jsx` | 🆕 Baru | Mini-game ice breaking (intro → learning → testing) |
-| `frontend/src/components/quiz/QuizGameOver.jsx` | 🆕 Baru | Game over screen |
-| `frontend/src/components/quiz/QuizVictory.jsx` | 🆕 Baru | Victory screen |
-| `frontend/src/components/quiz/QuizHPBar.jsx` | 🆕 Baru | HP bar (student + boss) |
-| `frontend/src/utils/sounds.js` | 🆕 Baru | Web Audio API retro sounds (hit, punch, error, select, swoosh, victory, gameover) |
-| `frontend/src/utils/aiService.js` | ✏️ Edit | Dioleh ulang — semua request AI lewat backend proxy (bukan langsung ke Gemini) |
-| `frontend/src/components/AIGenerateModal.jsx` | ✏️ Edit | Tambah `useAuth()` + csrfToken untuk backend proxy |
-| `frontend/src/components/analytics/TeacherAIAssistantModal.jsx` | ✏️ Edit | Tambah `useAuth()` + csrfToken untuk backend proxy |
-| `frontend/src/App.jsx` | ✏️ Edit | Route ErrorPage (401/403/404/429/500) |
-| `frontend/src/index.css` | ✏️ Edit | `.loading-screen`, `.loading-spinner`, responsive admin |
-
-### 📄 Dokumentasi
-| File | Status | Perubahan |
-| --- | --- | --- |
-| `README.md` | 🔄 Replace | Profesional — badge, daftar isi, arsitektur, API docs |
-| `info.md` | ✏️ Edit | Daftar perubahan sesi ini |
-| `build.sh` | ✏️ Edit | Komentar → `/FlacTopus/` |
-| `scripts/scan-secrets.sh` | ✏️ Edit | Komentar → `/FlacTopus/` |
-| `.htaccess` (root) | ✏️ Edit | Tambah SPA route redirect + CSP update |
-
-### 🗃️ Database (MySQL)
-| Item | Status | Keterangan |
-| --- | --- | --- |
-| `ruangan.theme_color` | ✅ Ditambahkan | VARCHAR(20) DEFAULT '#3b82f6' |
-| `class_members.role` | ✅ Ditambahkan | ENUM('member','admin') DEFAULT 'member' |
-| `class_members.is_marked` | ✅ Ditambahkan | TINYINT(1) DEFAULT 0 |
-| `class_members.pinned_at` | ✅ Ditambahkan | TIMESTAMP NULL |
-| `quiz_attempts` | ✅ Dibuat | Tabel baru (attempt tracking) |
-| `ai_chat_history` | ✅ Dibuat | Tabel baru (riwayat chat AI murid) |
-| `schema_version` | ✅ Updated | v3 (migration) |
-
-### 🔐 Security Audit (Sesi 27 Agustus 2026)
-
-| # | Security Check | Status | Keterangan |
-| --- | --- | --- | --- |
-| 1 | Navigation guard | ✅ Aman | Login/Register redirect ke /classes jika sudah login |
-| 2 | Guru lain tidak bisa aksi di ruangan orang | ✅ Aman | RBAC: isOwner/isOwnerOrSystemAdmin di semua aksi write |
-| 3 | Murid hanya bisa akses room yang join | ✅ Aman | canAccess() cek owner ATAU class_members |
-| 4 | Chat AI disimpan ke JSON file | ✅ Baru | `storage/chat/[nama]/[code_ruangan]/chat.json` |
-| 5 | Deteksi pindah tab (anti-cheat) | ✅ Baru | `visibilitychange` listener + `tab_switches` di quiz_attempts |
-| 6 | Analytics murid curang | ✅ Baru | Section "Deteksi Pindah Tab" di ClassAnalytics |
-| 7 | Admin = Superuser | ✅ Baru | Admin bisa lihat/hapus/edit/atur SEMUA ruangan guru + murid |
-| 8 | Gemini API key server-side | ✅ Baru | API key di `auth/config.php`, tidak ter-expose ke frontend |
-| 9 | AI Backend Proxy | ✅ Baru | `gemini.php` — semua request AI diproxy lewat backend PHP |
-| 10 | Garbage Collector | ✅ Baru | Auto-clean activity_log, orphaned files, stale sessions |
-| 11 | Logout + session clear | ✅ Baru | Clear `last_session_id` + log aktivitas logout |
-| 12 | .htaccess defense-in-depth | ✅ Baru | 56 file .htaccess di semua folder sensitif |
-| 13 | Trailing slash fix | ✅ Baru | `/admin/` redirect ke `/admin` (cegah serve index.php kosong) |
+*Terakhir diupdate: 28 Agustus 2026*
