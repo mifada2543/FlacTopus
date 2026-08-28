@@ -182,6 +182,65 @@ try {
         } catch (PDOException $e) { echo "❌ {$e->getMessage()}\n"; exit(1); }
     }
 
+    // ── v4: Tambah kolom theme_color (ruangan) & role/is_marked/pinned_at (class_members) ──
+    if ($currentVersion < 4) {
+        echo "🔄 v4: Tambah kolom theme_color & role, is_marked, pinned_at... ";
+        try {
+            // ruangan: tambah theme_color
+            if (tableExists($pdo, 'ruangan') && !columnExists($pdo, 'ruangan', 'theme_color')) {
+                $pdo->exec("ALTER TABLE ruangan ADD COLUMN theme_color VARCHAR(50) NOT NULL DEFAULT '#0f172a' AFTER user_id");
+            }
+
+            // class_members: tambah role, is_marked, pinned_at
+            if (tableExists($pdo, 'class_members')) {
+                if (!columnExists($pdo, 'class_members', 'role')) {
+                    $pdo->exec("ALTER TABLE class_members ADD COLUMN role ENUM('member','admin') NOT NULL DEFAULT 'member' AFTER last_seen_at");
+                }
+                if (!columnExists($pdo, 'class_members', 'is_marked')) {
+                    $pdo->exec("ALTER TABLE class_members ADD COLUMN is_marked TINYINT(1) NOT NULL DEFAULT 0 AFTER role");
+                }
+                if (!columnExists($pdo, 'class_members', 'pinned_at')) {
+                    $pdo->exec("ALTER TABLE class_members ADD COLUMN pinned_at TIMESTAMP NULL DEFAULT NULL AFTER is_marked");
+                }
+            }
+
+            $pdo->exec("INSERT IGNORE INTO schema_version (version, description) VALUES (4, 'Tambah kolom theme_color, role, is_marked, pinned_at')");
+            echo "✅\n";
+            $applied++;
+        } catch (PDOException $e) { echo "❌ {$e->getMessage()}\n"; exit(1); }
+    }
+
+    // ── v5: Tabel quiz_attempts (rekam jawaban murid) ──
+    if ($currentVersion < 5) {
+        echo "🔄 v5: Tambah tabel quiz_attempts (rekam jawaban murid)... ";
+        try {
+            if (!tableExists($pdo, 'quiz_attempts')) {
+                $pdo->exec("CREATE TABLE quiz_attempts (
+                    id INT UNSIGNED NOT NULL AUTO_INCREMENT,
+                    ruangan_id INT UNSIGNED NOT NULL,
+                    user_id INT UNSIGNED NOT NULL,
+                    node_id VARCHAR(100) NOT NULL,
+                    node_label VARCHAR(255) NOT NULL DEFAULT '',
+                    score INT NOT NULL DEFAULT 0,
+                    total_questions INT NOT NULL DEFAULT 0,
+                    correct_answers INT NOT NULL DEFAULT 0,
+                    wrong_answers JSON NULL DEFAULT NULL,
+                    tab_switches INT NOT NULL DEFAULT 0,
+                    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    PRIMARY KEY (id),
+                    KEY idx_qa_ruangan (ruangan_id),
+                    KEY idx_qa_user (user_id),
+                    KEY idx_qa_node (node_id),
+                    CONSTRAINT fk_qa_ruangan FOREIGN KEY (ruangan_id) REFERENCES ruangan (id) ON DELETE CASCADE ON UPDATE CASCADE,
+                    CONSTRAINT fk_qa_user FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE ON UPDATE CASCADE
+                ) ENGINE=InnoDB");
+            }
+            $pdo->exec("INSERT IGNORE INTO schema_version (version, description) VALUES (5, 'Tambah tabel quiz_attempts')");
+            echo "✅\n";
+            $applied++;
+        } catch (PDOException $e) { echo "❌ {$e->getMessage()}\n"; exit(1); }
+    }
+
     // Ringkasan
     $newVersion = (int) $pdo->query("SELECT MAX(version) FROM schema_version")->fetchColumn();
     echo "\n";
