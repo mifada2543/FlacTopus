@@ -28,6 +28,9 @@ class GarbageCollector
     /** Hari penyimpanan activity_log (default: 90 hari) */
     private const RETENTION_HARI = 90;
 
+    /** Hari retensi ruangan terhapus sebelum hard delete */
+    private const TRASH_RETENTION_HARI = 30;
+
     /** Interval minimum antara GC run (detik) — cegah double-run */
     private const MIN_INTERVAL = 3600; // 1 jam
 
@@ -77,13 +80,16 @@ class GarbageCollector
         // 4. Bersihkan chat history orphaned
         $this->cleanOrphanedChatFiles();
 
-        // 5. Bersihkan silabus orphaned
+        // 5. Hard delete ruangan terhapus > 30 hari
+        $this->cleanExpiredTrash();
+
+        // 6. Bersihkan silabus orphaned
         $this->cleanOrphanedSyllabusFiles();
 
-        // 6. Bersihkan .tmp files lama
+        // 7. Bersihkan .tmp files lama
         $this->cleanTempFiles();
 
-        // 7. Catat waktu terakhir GC berjalan
+        // 8. Catat waktu terakhir GC berjalan
         $this->touchLastRun();
 
         $duration = (int) ((microtime(true) - $start) * 1000);
@@ -203,7 +209,34 @@ class GarbageCollector
     }
 
     /**
-     * 5. Hapus file silabus untuk ruangan yang sudah dihapus dari DB.
+     * 5. Hard delete ruangan terhapus (soft-deleted) yang sudah > 30 hari.
+     */
+    private function cleanExpiredTrash(): void
+    {
+        $stmt = $this->db->prepare(
+            'SELECT id FROM ruangan WHERE deleted_at IS NOT NULL AND deleted_at < NOW() - INTERVAL ? DAY'
+        );
+        $stmt->execute([self::TRASH_RETENTION_HARI]);
+        $expiredRooms = $stmt->fetchAll(PDO::FETCH_COLUMN);
+
+        $deleted = 0;
+        foreach ($expiredRooms as $roomId) {
+            $rid = (int) $roomId;
+            // Hard delete (CASCADE akan hapus class_members, quiz_attempts, syllabus)
+            $this->db->prepare('DELETE FROM ruangan WHERE id = ?')->execute([$rid]);
+            // Hapus file silabus juga
+            $syllabusFile = $this->storageDir . '/ruangan/' . $rid . '.json';
+            if (is_file($syllabusFile)) {
+                @unlink($syllabusFile);
+            }
+            $deleted++;
+        }
+
+        $this->results['expired_trash'] = $deleted . " ruangan dihapus permanen (>" . self::TRASH_RETENTION_HARI . " hari)"];
+    }
+
+    /**
+     * 6. Hapus file silabus untuk ruangan yang sudah dihapus dari DB.
      *    File: storage/ruangan/<id>.json
      */
     private function cleanOrphanedSyllabusFiles(): void

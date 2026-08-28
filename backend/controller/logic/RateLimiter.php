@@ -179,9 +179,9 @@ class RateLimiter
     {
         // Gunakan window terpanjang (register = 3600 detik)
         $maxWindow = max(array_column(self::LIMITS, 'window'));
-        $this->db->exec(
-            'DELETE FROM login_attempts WHERE attempted_at < NOW() - INTERVAL '
-            . $maxWindow . ' SECOND'
+        $stmt = $this->db->prepare(
+            'DELETE FROM login_attempts WHERE attempted_at < NOW() - INTERVAL ? SECOND'
         );
+        $stmt->execute([$maxWindow]);
     }
 }

@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { AUTH_API, RUANGAN_API } from '../utils/api';
+import { LogOut } from 'lucide-react';
 import { ROLE, isAllowed } from '../utils/roles';
 import {
   Users, UserCheck, UserX, Shield, GraduationCap, BookOpen,
@@ -127,7 +128,7 @@ const btnSmall = (bg) => ({
 // ---- Tab Definitions ----
 const TABS = [
   { id: 'users', label: 'Kelola User', icon: <Users size={16} /> },
-  { id: 'rooms', label: 'Kelola Ruangan', icon: <Home size={16} /> },
+  { id: 'rooms', label: 'Ruangan Terhapus', icon: <Trash2 size={16} /> },
   { id: 'activity', label: 'Activity Log', icon: <Activity size={16} /> },
 ];
 
@@ -173,12 +174,31 @@ export default function AdminPanel() {
       {/* ---- Header ---- */}
       <header className="responsive-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '1.2rem 2rem', borderBottom: '1px solid var(--border-color)' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-          <Link to="/classes" style={{ color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '0.3rem', textDecoration: 'none' }}>
-            <ArrowLeft size={18} /> Kembali
-          </Link>
           <h1 style={{ color: 'var(--accent-green)', fontSize: '1.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem', margin: 0 }}>
             <Settings size={22} /> Panel Admin
           </h1>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+          <span style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>
+            👋 {authUser?.name || 'Admin'}
+          </span>
+          <button
+            onClick={async () => {
+              try {
+                await fetch(`${AUTH_API}/logout.php`, {
+                  method: 'POST', credentials: 'same-origin',
+                  headers: { 'X-CSRF-Token': csrfToken },
+                });
+              } catch {}
+              localStorage.removeItem('currentUser');
+              navigate('/login');
+            }}
+            style={{ background: 'transparent', border: '1px solid #ef4444', color: '#ef4444', padding: '0.5rem 1rem', borderRadius: '8px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.85rem', fontWeight: 600, transition: 'all 0.2s' }}
+            onMouseOver={(e) => { e.currentTarget.style.background = '#ef4444'; e.currentTarget.style.color = '#fff'; }}
+            onMouseOut={(e) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#ef4444'; }}
+          >
+            <LogOut size={16} /> Keluar
+          </button>
         </div>
       </header>
 
@@ -506,26 +526,23 @@ function UserManagementTab({ csrfToken, showMsg }) {
 }
 
 // ================================================================
-// TAB 2: ROOMS MANAGEMENT
+// TAB 2: RUANGAN TERHAPUS (Trash)
+// Admin hanya melihat ruangan yang dihapus guru (soft-deleted)
 // ================================================================
 function RoomsManagementTab({ csrfToken, showMsg }) {
-  const [roomStats, setRoomStats] = useState(null);
-  const [rooms, setRooms] = useState([]);
+  const [trashedRooms, setTrashedRooms] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedRoom, setSelectedRoom] = useState(null);
-  const [roomMembers, setRoomMembers] = useState([]);
-  const [detailLoading, setDetailLoading] = useState(false);
-  const [detailError, setDetailError] = useState('');
-  const [showDeleteModal, setShowDeleteModal] = useState(null);
   const [actionLoading, setActionLoading] = useState(false);
-  const [now, setNow] = useState(Date.now());
+  const [showRestoreModal, setShowRestoreModal] = useState(null);
+  const [showForceDeleteModal, setShowForceDeleteModal] = useState(null);
 
-  const loadData = useCallback(async () => {
+  const loadTrash = useCallback(async () => {
     try {
-      const data = await adminGet({ action: 'room_stats' });
-      setRoomStats(data.room_stats || null);
-      setRooms(data.rooms || []);
+      const res = await fetch(`${RUANGAN_API}/ruangan.php?action=trash`, { credentials: 'same-origin' });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || data.success === false) throw new Error(data.message || 'Gagal memuat data.');
+      setTrashedRooms(data.ruangan || []);
     } catch (err) {
       showMsg('error', err.message);
     } finally {
@@ -535,90 +552,62 @@ function RoomsManagementTab({ csrfToken, showMsg }) {
 
   useEffect(() => {
     if (!csrfToken) return;
-    loadData();
-  }, [csrfToken, loadData]);
+    loadTrash();
+  }, [csrfToken, loadTrash]);
 
-  useEffect(() => {
-    const iv = setInterval(() => { setNow(Date.now()); loadData(); }, 30000);
-    return () => clearInterval(iv);
-  }, [loadData]);
-
-  const loadMembers = useCallback(async (roomId) => {
-    setDetailLoading(true); setDetailError('');
-    try {
-      const res = await fetch(`${RUANGAN_API}/ruangan.php?action=members&id=${roomId}`, { credentials: 'same-origin' });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok || data.success === false) throw new Error(data.message || 'Gagal memuat anggota.');
-      setRoomMembers(data.anggota || []);
-    } catch (err) { setDetailError(err.message); } finally { setDetailLoading(false); }
-  }, []);
-
-  const handleViewRoom = async (room) => { setSelectedRoom(room); await loadMembers(room.id); };
-
-  const handleKick = async (room, member) => {
-    if (!window.confirm(`Keluarkan ${member.name} dari ruangan "${room.nama}"?`)) return;
+  const handleRestore = async () => {
+    if (!showRestoreModal) return;
     setActionLoading(true);
     try {
-      await adminPost(csrfToken, { action: 'kick', id: room.id, user_id: member.id });
-      showMsg('success', `${member.name} dikeluarkan dari ruangan.`);
-      setRoomMembers(prev => prev.filter(m => m.id !== member.id));
-      setRooms(prev => prev.map(r => r.id === room.id ? { ...r, anggota: Math.max(0, r.anggota - 1) } : r));
+      await adminPost(csrfToken, { action: 'restore', id: showRestoreModal.id });
+      showMsg('success', `Ruangan "${showRestoreModal.nama}" berhasil dipulihkan!`);
+      setTrashedRooms(prev => prev.filter(r => r.id !== showRestoreModal.id));
+      setShowRestoreModal(null);
     } catch (err) { showMsg('error', err.message); } finally { setActionLoading(false); }
   };
 
-  const handleDelete = async () => {
-    if (!showDeleteModal) return;
+  const handleForceDelete = async () => {
+    if (!showForceDeleteModal) return;
     setActionLoading(true);
     try {
-      await adminPost(csrfToken, { action: 'delete', id: showDeleteModal.id });
-      showMsg('success', `Ruangan "${showDeleteModal.nama}" berhasil dihapus.`);
-      setRooms(prev => prev.filter(r => r.id !== showDeleteModal.id));
-      setShowDeleteModal(null);
-      if (selectedRoom?.id === showDeleteModal.id) setSelectedRoom(null);
+      await adminPost(csrfToken, { action: 'force_delete', id: showForceDeleteModal.id });
+      showMsg('success', `Ruangan "${showForceDeleteModal.nama}" dihapus permanen.`);
+      setTrashedRooms(prev => prev.filter(r => r.id !== showForceDeleteModal.id));
+      setShowForceDeleteModal(null);
     } catch (err) { showMsg('error', err.message); } finally { setActionLoading(false); }
   };
 
   const q = searchTerm.trim().toLowerCase();
-  const filteredRooms = q ? rooms.filter(r =>
-    (r.nama || '').toLowerCase().includes(q) || (r.kode_ruangan || '').toLowerCase().includes(q) || (r.guru || '').toLowerCase().includes(q)
-  ) : rooms;
+  const filteredRooms = q ? trashedRooms.filter(r =>
+    (r.nama || '').toLowerCase().includes(q) || (r.guru || '').toLowerCase().includes(q)
+  ) : trashedRooms;
 
   if (isLoading) {
     return (
       <div style={{ textAlign: 'center', padding: '4rem', color: 'var(--text-muted)' }}>
-        <Loader2 size={20} style={{ animation: 'spin 1s linear infinite' }} /> Memuat data ruangan...
+        <Loader2 size={20} style={{ animation: 'spin 1s linear infinite' }} /> Memuat ruangan terhapus...
       </div>
     );
   }
 
   return (
     <div>
-      {/* Stats */}
-      {roomStats && (
-        <div className="stats-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '1rem', marginBottom: '1.5rem' }}>
-          {[
-            { label: 'Total', value: roomStats.total, icon: <Home size={18} />, color: 'var(--accent-green)' },
-            { label: 'Online', value: roomStats.online, icon: <Wifi size={18} />, color: '#34d399' },
-            { label: 'Aktif 1 Jam', value: roomStats.active_1h, icon: <Clock size={18} />, color: '#60a5fa' },
-            { label: 'Kedaluwarsa', value: roomStats.expired, icon: <WifiOff size={18} />, color: '#f87171' },
-            { label: 'Total Anggota', value: roomStats.total_members, icon: <Users size={18} />, color: '#fbbf24' },
-          ].map((s, i) => (
-            <div key={i} style={{ background: 'var(--bg-card)', padding: '1rem', borderRadius: '10px', border: '1px solid var(--border-color)', display: 'flex', alignItems: 'center', gap: '0.7rem' }}>
-              <div style={{ color: s.color, opacity: 0.8 }}>{s.icon}</div>
-              <div>
-                <div style={{ fontSize: '1.3rem', fontWeight: 800, color: s.color }}>{s.value ?? 0}</div>
-                <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{s.label}</div>
-              </div>
-            </div>
-          ))}
+      {/* Info Banner */}
+      <div style={{ background: 'rgba(59, 130, 246, 0.08)', border: '1px solid rgba(59, 130, 246, 0.3)', borderRadius: '10px', padding: '1rem 1.5rem', marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '0.8rem' }}>
+        <AlertTriangle size={20} color="#60a5fa" style={{ flexShrink: 0 }} />
+        <div>
+          <p style={{ color: '#60a5fa', fontWeight: 700, margin: 0, fontSize: '0.9rem' }}>Ruangan Terhapus</p>
+          <p style={{ color: 'var(--text-muted)', fontSize: '0.82rem', margin: '0.2rem 0 0' }}>
+            Hanya ruangan yang dihapus oleh guru yang muncul di sini. Data akan dihapus permanen setelah 30 hari. Anda bisa memulihkannya kapan saja.
+          </p>
         </div>
-      )}
+      </div>
 
       {/* Search */}
       <div style={{ marginBottom: '1.2rem' }}>
         <div style={{ position: 'relative', maxWidth: '400px' }}>
           <Search size={16} style={{ position: 'absolute', left: '0.9rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
-          <input type="text" placeholder="Cari nama ruangan, kode, atau guru..." value={searchTerm}
+          <input type="text" placeholder="Cari nama ruangan atau guru..." value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             style={{ ...inputStyle, paddingLeft: '2.5rem' }} />
         </div>
@@ -628,8 +617,11 @@ function RoomsManagementTab({ csrfToken, showMsg }) {
       <div className="responsive-table-wrap" style={{ background: 'var(--bg-card)', borderRadius: '12px', border: '1px solid var(--border-color)', overflow: 'hidden' }}>
         {filteredRooms.length === 0 ? (
           <div style={{ textAlign: 'center', padding: '3rem' }}>
-            <Home size={40} color="var(--text-muted)" style={{ opacity: 0.4, marginBottom: '0.8rem' }} />
-            <h3 style={{ color: 'var(--text-muted)', fontSize: '1rem' }}>{rooms.length === 0 ? 'Belum ada ruangan.' : 'Tidak ada ruangan yang cocok.'}</h3>
+            <Trash2 size={40} color="var(--text-muted)" style={{ opacity: 0.4, marginBottom: '0.8rem' }} />
+            <h3 style={{ color: 'var(--text-muted)', fontSize: '1rem' }}>{trashedRooms.length === 0 ? 'Tidak ada ruangan terhapus.' : 'Tidak ada yang cocok.'}</h3>
+            <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginTop: '0.3rem' }}>
+              {trashedRooms.length === 0 ? 'Ruangan yang dihapus guru akan muncul di sini.' : 'Coba kata kunci lain.'}
+            </p>
           </div>
         ) : (
           <div style={{ overflowX: 'auto' }}>
@@ -638,36 +630,28 @@ function RoomsManagementTab({ csrfToken, showMsg }) {
                 <tr style={{ borderBottom: '2px solid var(--border-color)' }}>
                   <th style={thStyle}>#</th>
                   <th style={thStyle}>Nama Ruangan</th>
-                  <th style={thStyle}>Kode</th>
                   <th style={thStyle}>Guru</th>
                   <th style={thStyle}>Anggota</th>
-                  <th style={thStyle}>Status</th>
-                  <th style={thStyle}>Sisa Waktu</th>
+                  <th style={thStyle}>Dihapus</th>
+                  <th style={thStyle}>Sisa Hari</th>
                   <th style={{ ...thStyle, textAlign: 'center' }}>Aksi</th>
                 </tr>
               </thead>
               <tbody>
                 {filteredRooms.map((room, idx) => {
-                  const sisa = Math.max(0, (room.sisa_detik ?? 0) - Math.floor((now - Date.now()) / 1000));
-                  const isOnline = sisa > 6900;
-                  const isExpiring = sisa < 1800 && sisa > 0;
-                  const isExpired = sisa <= 0;
+                  const sisaHari = Math.ceil((room.sisa_hari_detik ?? 0) / 86400);
+                  const isUrgent = sisaHari <= 7;
 
                   return (
-                    <tr key={room.id} style={{ borderBottom: '1px solid var(--border-color)', opacity: isExpired ? 0.5 : 1 }}
+                    <tr key={room.id} style={{ borderBottom: '1px solid var(--border-color)' }}
                       onMouseOver={(e) => e.currentTarget.style.background = 'rgba(16, 185, 129, 0.03)'}
                       onMouseOut={(e) => e.currentTarget.style.background = 'transparent'}>
                       <td style={tdStyle}>{idx + 1}</td>
-                      <td style={{ ...tdStyle, fontWeight: 600, maxWidth: '200px' }}>
+                      <td style={{ ...tdStyle, fontWeight: 600 }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                          <BookOpen size={13} color="var(--accent-green)" style={{ flexShrink: 0 }} />
-                          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{room.nama}</span>
+                          <Trash2 size={13} color="#f87171" style={{ flexShrink: 0 }} />
+                          <span>{room.nama}</span>
                         </div>
-                      </td>
-                      <td style={tdStyle}>
-                        <span style={{ background: 'rgba(16, 185, 129, 0.1)', color: 'var(--accent-green)', padding: '0.15rem 0.5rem', borderRadius: '4px', fontFamily: 'monospace', fontWeight: 700, fontSize: '0.8rem' }}>
-                          {room.kode_ruangan}
-                        </span>
                       </td>
                       <td style={{ ...tdStyle, color: 'var(--text-muted)' }}>
                         <span style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}><GraduationCap size={12} color="#60a5fa" />{room.guru}</span>
@@ -677,21 +661,26 @@ function RoomsManagementTab({ csrfToken, showMsg }) {
                           <Users size={12} /> {room.anggota}
                         </span>
                       </td>
-                      <td style={tdStyle}>
-                        {isExpired ? <span style={{ color: '#f87171', fontSize: '0.8rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.3rem' }}><WifiOff size={12} /> Kedaluwarsa</span>
-                         : isOnline ? <span style={{ color: '#34d399', fontSize: '0.8rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.3rem' }}><Wifi size={12} /> Online</span>
-                         : <span style={{ color: isExpiring ? '#fbbf24' : 'var(--text-muted)', fontSize: '0.8rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.3rem' }}><Clock size={12} /> Aktif</span>}
+                      <td style={{ ...tdStyle, color: 'var(--text-muted)', fontSize: '0.82rem' }}>
+                        {fmtDate(room.deleted_at)}
                       </td>
-                      <td style={{ ...tdStyle, fontFamily: 'monospace', fontSize: '0.82rem', color: isExpiring ? '#fbbf24' : isExpired ? '#f87171' : 'var(--text-muted)' }}>
-                        {isExpired ? '-' : fmtSisa(sisa)}
+                      <td style={{ ...tdStyle }}>
+                        <span style={{
+                          fontFamily: 'monospace', fontSize: '0.82rem', fontWeight: 700,
+                          color: isUrgent ? '#f87171' : sisaHari <= 14 ? '#fbbf24' : 'var(--text-muted)',
+                          background: isUrgent ? 'rgba(239, 68, 68, 0.1)' : 'transparent',
+                          padding: '0.15rem 0.5rem', borderRadius: '4px',
+                        }}>
+                          {sisaHari} hari
+                        </span>
                       </td>
                       <td style={{ ...tdStyle, textAlign: 'center' }}>
                         <div style={{ display: 'flex', gap: '0.3rem', justifyContent: 'center' }}>
-                          <button onClick={() => handleViewRoom(room)} style={btnSmall('rgba(59, 130, 246, 0.2)')} title="Detail">
-                            <Eye size={12} color="#60a5fa" /> Detail
+                          <button onClick={() => setShowRestoreModal(room)} style={btnSmall('rgba(16, 185, 129, 0.2)')} title="Pulihkan">
+                            <CheckCircle size={12} color="var(--accent-green)" /> Pulihkan
                           </button>
-                          <button onClick={() => setShowDeleteModal(room)} style={btnSmall('rgba(239, 68, 68, 0.15)')} title="Hapus" disabled={isExpired}>
-                            <Trash2 size={12} color="#f87171" />
+                          <button onClick={() => setShowForceDeleteModal(room)} style={btnSmall('rgba(239, 68, 68, 0.15)')} title="Hapus Permanen">
+                            <Trash2 size={12} color="#f87171" /> Hapus
                           </button>
                         </div>
                       </td>
@@ -704,69 +693,46 @@ function RoomsManagementTab({ csrfToken, showMsg }) {
         )}
       </div>
 
-      {/* Modal: Detail Ruangan */}
-      {selectedRoom && (
-        <ModalBackdrop onClose={() => { setSelectedRoom(null); setRoomMembers([]); }}>
-          <ModalCard title={selectedRoom.nama} titleColor="var(--accent-green)" onClose={() => { setSelectedRoom(null); setRoomMembers([]); }}>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.8rem', marginBottom: '1rem', color: 'var(--text-muted)', fontSize: '0.85rem' }}>
-              <span style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}><KeyRound size={12} /> Kode: <strong style={{ color: 'white', letterSpacing: '1px' }}>{selectedRoom.kode_ruangan}</strong></span>
-              <span style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}><GraduationCap size={12} color="#60a5fa" /> {selectedRoom.guru}</span>
-              <span style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}><Users size={12} /> {selectedRoom.anggota} anggota</span>
+      {/* Modal: Restore */}
+      {showRestoreModal && (
+        <ModalBackdrop onClose={() => setShowRestoreModal(null)}>
+          <ModalCard title="Pulihkan Ruangan" titleColor="var(--accent-green)" onClose={() => setShowRestoreModal(null)}>
+            <div style={{ background: 'rgba(16, 185, 129, 0.08)', border: '1px solid rgba(16, 185, 129, 0.3)', borderRadius: '8px', padding: '1rem', marginBottom: '1rem' }}>
+              <p style={{ fontWeight: 700, color: 'var(--accent-green)', margin: 0 }}>{showRestoreModal.nama}</p>
+              <p style={{ color: 'var(--text-muted)', fontSize: '0.82rem', margin: '0.3rem 0 0' }}>
+                Guru: {showRestoreModal.guru} · {showRestoreModal.anggota} anggota
+              </p>
             </div>
-            <div style={{ background: '#0f172a', borderRadius: '8px', padding: '0.7rem 1rem', marginBottom: '1rem', fontSize: '0.8rem', color: 'var(--text-muted)', display: 'flex', flexWrap: 'wrap', gap: '0.8rem' }}>
-              <span>Dibuat: <strong style={{ color: 'white' }}>{fmtDate(selectedRoom.created_at)}</strong></span>
-              <span>Aktif: <strong style={{ color: 'white' }}>{fmtDate(selectedRoom.last_active_at)}</strong></span>
+            <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginBottom: '1rem', lineHeight: '1.5' }}>
+              Ruangan akan dipulihkan dan guru serta murid bisa mengaksesnya kembali.
+            </p>
+            <div style={{ display: 'flex', gap: '0.8rem' }}>
+              <button onClick={() => setShowRestoreModal(null)} style={modalBtnSecondary}>Batal</button>
+              <button onClick={handleRestore} disabled={actionLoading} style={modalBtnPrimary}>
+                {actionLoading ? <Loader2 size={16} style={{ animation: 'spin 1s linear infinite' }} /> : <CheckCircle size={16} />} Pulihkan
+              </button>
             </div>
-            <h4 style={{ color: 'var(--text-main)', marginBottom: '0.6rem', display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.95rem' }}>
-              <Users size={14} /> Daftar Anggota
-            </h4>
-            {detailLoading ? (
-              <div style={{ textAlign: 'center', padding: '1.5rem', color: 'var(--text-muted)' }}><Loader2 size={18} style={{ animation: 'spin 1s linear infinite' }} /> Memuat...</div>
-            ) : detailError ? (
-              <div style={{ textAlign: 'center', padding: '1.5rem', color: '#f87171' }}>{detailError}</div>
-            ) : roomMembers.length === 0 ? (
-              <div style={{ textAlign: 'center', padding: '1.5rem', background: 'rgba(0,0,0,0.2)', borderRadius: '8px', color: 'var(--text-muted)', border: '1px dashed var(--border-color)' }}>
-                <Users size={28} style={{ opacity: 0.4, marginBottom: '0.4rem' }} /><p style={{ fontSize: '0.85rem' }}>Belum ada anggota.</p>
-              </div>
-            ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem', maxHeight: '250px', overflowY: 'auto' }}>
-                {roomMembers.map(member => (
-                  <div key={member.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'rgba(0,0,0,0.2)', padding: '0.6rem 0.8rem', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                      <span style={{ width: 7, height: 7, borderRadius: '50%', background: member.online ? 'var(--accent-green)' : 'var(--text-muted)', opacity: member.online ? 1 : 0.4 }} />
-                      <div>
-                        <div style={{ color: 'white', fontWeight: 600, fontSize: '0.85rem' }}>
-                          {member.name}
-                          {member.online && <span style={{ color: 'var(--accent-green)', fontSize: '0.7rem', fontWeight: 'normal', marginLeft: '0.3rem' }}>· Online</span>}
-                        </div>
-                        <div style={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}>{member.email}</div>
-                      </div>
-                    </div>
-                    <button onClick={() => handleKick(selectedRoom, member)} disabled={actionLoading}
-                      style={{ background: 'transparent', border: '1px solid rgba(239, 68, 68, 0.4)', color: '#f87171', padding: '0.25rem 0.5rem', borderRadius: '5px', cursor: 'pointer', fontSize: '0.72rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.2rem' }}>
-                      <UserX size={11} /> Keluarkan
-                    </button>
-                  </div>
-                ))}
-              </div>
-            )}
           </ModalCard>
         </ModalBackdrop>
       )}
 
-      {/* Modal: Delete Room */}
-      {showDeleteModal && (
-        <ModalBackdrop onClose={() => setShowDeleteModal(null)}>
-          <ModalCard title="Hapus Ruangan" titleColor="#f87171" onClose={() => setShowDeleteModal(null)}>
-            <div style={{ background: 'rgba(239, 68, 68, 0.08)', border: '1px solid rgba(239, 68, 68, 0.3)', borderRadius: '8px', padding: '0.8rem', marginBottom: '1rem' }}>
-              <p style={{ fontWeight: 700, color: '#f87171', margin: 0 }}>{showDeleteModal.nama}</p>
-              <p style={{ color: 'var(--text-muted)', fontSize: '0.82rem', margin: '0.2rem 0 0' }}>Kode: {showDeleteModal.kode_ruangan} · Guru: {showDeleteModal.guru} · {showDeleteModal.anggota} anggota</p>
+      {/* Modal: Force Delete */}
+      {showForceDeleteModal && (
+        <ModalBackdrop onClose={() => setShowForceDeleteModal(null)}>
+          <ModalCard title="Hapus Permanen" titleColor="#f87171" onClose={() => setShowForceDeleteModal(null)}>
+            <div style={{ background: 'rgba(239, 68, 68, 0.08)', border: '1px solid rgba(239, 68, 68, 0.3)', borderRadius: '8px', padding: '1rem', marginBottom: '1rem' }}>
+              <p style={{ fontWeight: 700, color: '#f87171', margin: 0 }}>{showForceDeleteModal.nama}</p>
+              <p style={{ color: 'var(--text-muted)', fontSize: '0.82rem', margin: '0.3rem 0 0' }}>
+                Guru: {showForceDeleteModal.guru} · {showForceDeleteModal.anggota} anggota
+              </p>
             </div>
-            <p style={{ color: '#fbbf24', fontSize: '0.82rem', marginBottom: '1rem' }}>⚠️ Semua anggota dan silabus akan ikut terhapus (CASCADE).</p>
+            <p style={{ color: '#fbbf24', fontSize: '0.85rem', marginBottom: '1rem' }}>
+              ⚠️ Tindakan ini tidak dapat dibatalkan. Seluruh data (anggota, silabus, analitik) akan dihapus permanen.
+            </p>
             <div style={{ display: 'flex', gap: '0.8rem' }}>
-              <button onClick={() => setShowDeleteModal(null)} style={modalBtnSecondary}>Batal</button>
-              <button onClick={handleDelete} disabled={actionLoading} style={{ ...modalBtnPrimary, background: '#ef4444', color: 'white' }}>
-                {actionLoading ? <Loader2 size={16} style={{ animation: 'spin 1s linear infinite' }} /> : <Trash2 size={16} />} Hapus
+              <button onClick={() => setShowForceDeleteModal(null)} style={modalBtnSecondary}>Batal</button>
+              <button onClick={handleForceDelete} disabled={actionLoading} style={{ ...modalBtnPrimary, background: '#ef4444', color: 'white' }}>
+                {actionLoading ? <Loader2 size={16} style={{ animation: 'spin 1s linear infinite' }} /> : <Trash2 size={16} />} Hapus Permanen
               </button>
             </div>
           </ModalCard>

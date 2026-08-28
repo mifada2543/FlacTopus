@@ -7,28 +7,28 @@ const QUIZ_TYPES = [
     name: 'Pilihan Ganda Biasa',
     description: 'Format kuis standar dengan satu jawaban benar dari beberapa pilihan.',
     iconType: 'check',
-    image: '/FlacTopus/quiz-pilihan-ganda.png'
+    image: '/quiz-pilihan-ganda.png'
   },
   {
     id: 'fill_in_the_blank',
     name: 'Isi Rumpang (Interaktif)',
     description: 'Murid menyusun blok kata untuk melengkapi kalimat yang kosong.',
     iconType: 'form',
-    image: '/FlacTopus/quiz-isi-rumpang.png'
+    image: '/quiz-isi-rumpang.png'
   },
   {
     id: 'boss_fight',
     name: 'Boss Fight (Pilihan Ganda)',
     description: 'Pertarungan kuis epik melawan monster. Cocok untuk ujian akhir.',
     iconType: 'boss',
-    image: '/FlacTopus/quiz-boss-fight.png'
+    image: '/quiz-boss-fight.png'
   },
   {
     id: 'auditory',
     name: 'Auditori (Mendengar)',
     description: 'Murid mendengarkan audio sebelum menjawab pertanyaan kuis.',
     iconType: 'audio',
-    image: '/FlacTopus/quiz-auditori.png'
+    image: '/quiz-auditori.png'
   }
 ];
 

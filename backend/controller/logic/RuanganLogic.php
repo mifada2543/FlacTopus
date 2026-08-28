@@ -41,6 +41,9 @@ class RuanganLogic
         $this->db = $pdo ?? db();
     }
 
+    /** Hari retensi ruangan terhapus sebelum di-hard delete oleh GC */
+    public const TRASH_RETENTION_HARI = 30;
+
     /**
      * Hapus permanen ruangan yang sudah > 2 jam tanpa penggunaan.
      * (Hard delete — anggota & silabus ikut terhapus via FK CASCADE;
@@ -57,9 +60,10 @@ class RuanganLogic
 
     /**
      * Daftar ruangan sesuai role pengguna:
-     *   - admin   : SEMUA ruangan
-     *   - teacher : ruangan yang dibuatnya
-     *   - student : ruangan yang digabung
+     *   - admin   : tidak lihat ruangan (privacy — admin hanya akses trash)
+     *   - teacher : ruangan aktif yang dibuatnya
+     *   - student : ruangan aktif yang digabung
+     * (Ruangan terhapus/di-trash TIDAK ditampilkan)
      */
     public function listForUser(array $user): array
     {
@@ -72,15 +76,13 @@ class RuanganLogic
         $sisa = '999999 AS sisa_detik';
 
         if ($role === 'admin') {
-            // Admin = superuser, lihat SEMUA ruangan
-            $sql = "SELECT r.*, u.name AS guru, $sisa
-                    FROM ruangan r JOIN users u ON u.id = r.user_id
-                    ORDER BY r.created_at DESC";
-            $params = [];
+            // Admin TIDAK melihat ruangan aktif guru (privacy)
+            // Admin hanya mengakses ruangan terhapus via listTrashed()
+            return [];
         } elseif ($role === 'teacher') {
             $sql = "SELECT r.*, u.name AS guru, $sisa
                     FROM ruangan r JOIN users u ON u.id = r.user_id
-                    WHERE r.user_id = ?
+                    WHERE r.user_id = ? AND r.deleted_at IS NULL
                     ORDER BY r.created_at DESC";
             $params = [$uid];
         } else {
@@ -88,7 +90,7 @@ class RuanganLogic
                     FROM ruangan r
                     JOIN users u ON u.id = r.user_id
                     JOIN class_members cm ON cm.ruangan_id = r.id
-                    WHERE cm.user_id = ?
+                    WHERE cm.user_id = ? AND r.deleted_at IS NULL
                     ORDER BY r.created_at DESC";
             $params = [$uid];
         }
@@ -170,7 +172,7 @@ class RuanganLogic
             return ['success' => false, 'message' => 'Admin tidak diizinkan masuk ke kelas guru.'];
         }
 
-        $stmt = $this->db->prepare('SELECT * FROM ruangan WHERE kode_ruangan = ?');
+        $stmt = $this->db->prepare('SELECT * FROM ruangan WHERE kode_ruangan = ? AND deleted_at IS NULL');
         $stmt->execute([$kode]);
         $room = $stmt->fetch();
 
@@ -215,20 +217,138 @@ class RuanganLogic
     }
 
     /**
-     * Hapus ruangan — hanya guru pembuat atau admin.
-     * (Hard delete; anggota & silabus terhapus via CASCADE.)
+     * Soft delete ruangan — hanya guru pembuat.
+     * Data tetap aman di DB (bisa dipulihkan admin dalam 30 hari).
      */
     public function delete(array $user, int $id): array
     {
         $this->purgeExpired();
 
-        if (!$this->isOwnerOrSystemAdmin($id, (int) $user['id'])) {
-            return ['success' => false, 'message' => 'Hanya guru pembuat ruangan atau admin sistem yang bisa menghapus.'];
+        // Hanya guru PEMBUAT yang bisa soft delete (admin tidak boleh)
+        if (!$this->isOwner($id, (int) $user['id'])) {
+            return ['success' => false, 'message' => 'Hanya guru pembuat ruangan yang bisa menghapus.'];
+        }
+
+        $stmt = $this->db->prepare('SELECT id, deleted_at FROM ruangan WHERE id = ?');
+        $stmt->execute([$id]);
+        $room = $stmt->fetch();
+        if (!$room) {
+            return ['success' => false, 'message' => 'Ruangan tidak ditemukan.'];
+        }
+        if ($room['deleted_at'] !== null) {
+            return ['success' => false, 'message' => 'Ruangan sudah dihapus sebelumnya.'];
+        }
+
+        $this->db->prepare('UPDATE ruangan SET deleted_at = NOW(), deleted_by = ? WHERE id = ?')
+            ->execute([(int) $user['id'], $id]);
+
+        return [
+            'success' => true,
+            'message' => "Ruangan berhasil dihapus. Data akan disimpan selama " . self::TRASH_RETENTION_HARI . " hari sebelum dihapus permanen. Hubungi admin untuk memulihkan.",
+        ];
+    }
+
+    /**
+     * Admin: daftar ruangan terhapus (soft-deleted).
+     * Tidak termasuk yang sudah > 30 hari (akan di-hard delete GC).
+     */
+    public function listTrashed(array $user): array
+    {
+        if (($user['role'] ?? '') !== 'admin') {
+            return ['success' => false, 'message' => 'Hanya admin yang bisa mengakses daftar ruangan terhapus.'];
+        }
+
+        $sql = "SELECT r.*, u.name AS guru,
+                       TIMESTAMPDIFF(DAY, r.deleted_at, NOW()) AS hari_terhapus,
+                       TIMESTAMPDIFF(SECOND, r.deleted_at, NOW() + INTERVAL " . self::TRASH_RETENTION_HARI . " DAY) AS sisa_hari_detik
+                FROM ruangan r JOIN users u ON u.id = r.user_id
+                WHERE r.deleted_at IS NOT NULL
+                ORDER BY r.deleted_at DESC";
+        $stmt = $this->db->prepare($sql);
+        $stmt->execute();
+        $rows = $stmt->fetchAll();
+
+        // Jumlah anggota per ruangan
+        $counts = [];
+        $ids = array_map(static fn ($r) => (int) $r['id'], $rows);
+        if ($ids) {
+            $in = implode(',', array_fill(0, count($ids), '?'));
+            $c = $this->db->prepare(
+                "SELECT ruangan_id, COUNT(*) AS jml FROM class_members WHERE ruangan_id IN ($in) GROUP BY ruangan_id"
+            );
+            $c->execute($ids);
+            foreach ($c->fetchAll() as $row) {
+                $counts[(int) $row['ruangan_id']] = (int) $row['jml'];
+            }
+        }
+
+        $results = [];
+        foreach ($rows as $r) {
+            $sisaDetik = max(0, (int) ($r['sisa_hari_detik'] ?? 0));
+            $results[] = [
+                'id'            => (int) $r['id'],
+                'nama'          => $r['nama'],
+                'kode_ruangan'  => $r['kode_ruangan'],
+                'user_id'       => (int) $r['user_id'],
+                'guru'          => $r['guru'],
+                'anggota'       => $counts[(int) $r['id']] ?? 0,
+                'created_at'    => $r['created_at'],
+                'deleted_at'    => $r['deleted_at'],
+                'deleted_by'    => (int) ($r['deleted_by'] ?? 0),
+                'hari_terhapus' => (int) ($r['hari_terhapus'] ?? 0),
+                'sisa_hari_detik' => $sisaDetik,
+                'theme_color'   => $r['theme_color'] ?? '#0f172a',
+            ];
+        }
+
+        return ['success' => true, 'ruangan' => $results];
+    }
+
+    /**
+     * Admin: pulihkan ruangan dari trash (restore).
+     * Menghapus deleted_at → ruangan aktif kembali.
+     */
+    public function restore(array $user, int $id): array
+    {
+        if (($user['role'] ?? '') !== 'admin') {
+            return ['success' => false, 'message' => 'Hanya admin yang bisa memulihkan ruangan.'];
+        }
+
+        $stmt = $this->db->prepare('SELECT id, deleted_at FROM ruangan WHERE id = ?');
+        $stmt->execute([$id]);
+        $room = $stmt->fetch();
+        if (!$room) {
+            return ['success' => false, 'message' => 'Ruangan tidak ditemukan.'];
+        }
+        if ($room['deleted_at'] === null) {
+            return ['success' => false, 'message' => 'Ruangan tidak sedang dalam status terhapus.'];
+        }
+
+        $this->db->prepare('UPDATE ruangan SET deleted_at = NULL, deleted_by = NULL WHERE id = ?')
+            ->execute([$id]);
+
+        return ['success' => true, 'message' => 'Ruangan berhasil dipulihkan! Guru dan murid bisa mengaksesnya kembali.'];
+    }
+
+    /**
+     * Admin: hapus permanen ruangan dari trash (hard delete).
+     */
+    public function forceDelete(array $user, int $id): array
+    {
+        if (($user['role'] ?? '') !== 'admin') {
+            return ['success' => false, 'message' => 'Hanya admin yang bisa menghapus permanen ruangan.'];
+        }
+
+        $stmt = $this->db->prepare('SELECT id FROM ruangan WHERE id = ?');
+        $stmt->execute([$id]);
+        if (!$stmt->fetch()) {
+            return ['success' => false, 'message' => 'Ruangan tidak ditemukan.'];
         }
 
         $this->db->prepare('DELETE FROM ruangan WHERE id = ?')->execute([$id]);
-        $this->deleteSyllabusFile($id); // hapus file build-nya juga
-        return ['success' => true, 'message' => 'Ruangan dihapus.'];
+        $this->deleteSyllabusFile($id);
+
+        return ['success' => true, 'message' => 'Ruangan berhasil dihapus permanen beserta seluruh data terkait.'];
     }
 
     /** Reset data analitik (quiz_attempts) untuk ruangan ini */
@@ -632,6 +752,7 @@ class RuanganLogic
 
     private function isOwner(int $ruanganId, int $userId): bool
     {
+        // isOwner bekerja untuk ruangan aktif DAN terhapus (untuk soft delete)
         $stmt = $this->db->prepare('SELECT user_id FROM ruangan WHERE id = ?');
         $stmt->execute([$ruanganId]);
         $row = $stmt->fetch();

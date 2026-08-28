@@ -4,20 +4,14 @@
 
 <IfModule mod_rewrite.c>
     RewriteEngine On
-    RewriteBase /FlacTopus/
+    RewriteBase /
 
     # ---- Blokir akses langsung ke folder sensitif ----
-    # .git (riwayat repo), .github (config CI), scripts & hooks (skrip
-    # deploy), backend/controller/logic (logika PHP internal — catatan:
-    # backend/controller/api/ tetap boleh diakses), frontend/node_modules
-    # (deps), .vscode/.idea (config editor)
-    RewriteRule ^(\.git|\.github|scripts|hooks|source|backend/controller/logic|frontend/node_modules|frontend/src|frontend/public|frontend/dist|\.vscode|\.idea)(/|$) - [F,L]
+    RewriteRule ^(\\.git|\\.github|scripts|hooks|source|backend/controller/logic|frontend/node_modules|frontend/src|frontend/public|frontend/dist|\\.vscode|\\.idea)(/|$) - [F,L]
 
-    # ---- Cegah Apache redirect /admin -> /admin/ (serve index.php kosong) ----
-    # Jika request ke folder yang punya index.php tapi itu kosong,
-    # paksa ke SPA route tanpa trailing slash.
-    RewriteCond %{REQUEST_URI} ^/FlacTopus/(admin|classes|analytics|teacher|student|quiz|room)/$
-    RewriteRule ^ /FlacTopus/%1 [R=301,L]
+    # ---- Cegah Apache redirect /admin -> /admin/ ----
+    RewriteCond %{REQUEST_URI} ^/(admin|classes|analytics|teacher|student|quiz|room)/$
+    RewriteRule ^ /%1 [R=301,L]
 
     # ---- File/direktori yang benar-benar ada: biarkan ----
     RewriteCond %{REQUEST_FILENAME} -f [OR]
@@ -28,51 +22,24 @@
     RewriteRule ^ index.html [L]
 </IfModule>
 
-# ---- Blokir file sensitif (berlaku di root + semua subfolder) ----
-# File dot-env & config repo: .env, .env.local, .env.example, .gitignore,
-# .gitattributes, .htpasswd
+# ---- Blokir file sensitif ----
 <IfModule mod_authz_core.c>
-    <FilesMatch "^\.(env|gitignore|gitattributes|htpasswd)|package-lock\.json$">
+    <FilesMatch "^\\.(env|gitignore|gitattributes|htpasswd)|package-lock\\.json$">
         Require all denied
     </FilesMatch>
-
-    # Ekstensi berisiko: skrip, SQL, backup/editor, log, lock file
-    <FilesMatch "\.(env|sh|sql|bak|old|orig|save|swp|swo|tmp|log|lock)$">
+    <FilesMatch "\\.(env|sh|sql|bak|old|orig|save|swp|swo|tmp|log|lock)$">
         Require all denied
-    </FilesMatch>
-</IfModule>
-
-# Fallback Apache 2.2
-<IfModule !mod_authz_core.c>
-    <FilesMatch "^\.(env|gitignore|gitattributes|htpasswd)">
-        Order allow,deny
-        Deny from all
     </FilesMatch>
 </IfModule>
 
 # ============================================================
-# Header keamanan (berlaku di semua respons: halaman, API, aset)
+# Header keamanan
 # ============================================================
 <IfModule mod_headers.c>
-    # Anti MIME-sniffing: browser wajib pakai Content-Type asli file
     Header always set X-Content-Type-Options "nosniff"
-
-    # Anti clickjacking: halaman tidak boleh di-frame situs lain
     Header always set X-Frame-Options "SAMEORIGIN"
-
-    # Content Security Policy (CSP sederhana)
-    # - Semua resource default dari origin sendiri ('self')
-    # - script: hanya file eksternal same-origin (bundle Vite). Jika nanti
-    #   ada halaman PHP dengan <script> inline, tambahkan 'unsafe-inline'
-    #   atau nonce ke script-src.
-    # - style: izinkan inline style (React memakai style={{}...})
-    # - connect-src: hanya ke server sendiri (AI diproxy lewat backend PHP)
-    # - object-src none: blokir plugin (Flash, dsb)
-    Header always set Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'self'"
-
-    # Sembunyikan versi software (jangan bocorkan versi Apache/PHP/modul)
+    Header always set Content-Security-Policy "default-src 'self'; script-src 'self' https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'self'"
     Header always unset X-Powered-By
 </IfModule>
 
-# Jangan tampilkan baris versi Apache di halaman error/direktori otomatis
 ServerSignature Off

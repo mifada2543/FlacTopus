@@ -33,8 +33,14 @@ function require_guest(): void
 {
     start_session();
     if (!empty($_SESSION['user'])) {
-        $target = $_SESSION['user']['role'] === 'teacher' ? REDIRECT_TEACHER : REDIRECT_STUDENT;
-        redirect($target);
+        $role = $_SESSION['user']['role'] ?? '';
+        if ($role === 'admin') {
+            redirect('/admin');
+        } elseif ($role === 'teacher') {
+            redirect(REDIRECT_TEACHER);
+        } else {
+            redirect(REDIRECT_STUDENT);
+        }
     }
 }
 

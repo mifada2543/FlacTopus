@@ -47,6 +47,15 @@ if ($method === 'GET') {
         json_response($res, $res['success'] ? 200 : 400);
     }
 
+    // Daftar ruangan terhapus (hanya admin)
+    if ($action === 'trash') {
+        if (($user['role'] ?? '') !== 'admin') {
+            json_response(['success' => false, 'message' => 'Akses ditolak.'], 403);
+        }
+        $res = $logic->listTrashed($user);
+        json_response($res, $res['success'] ? 200 : 400);
+    }
+
     json_response([
         'success'    => true,
         'ruangan'    => $logic->listForUser($user),
@@ -79,8 +88,20 @@ if ($method === 'POST') {
             break;
 
         case 'delete':
-            // RBAC "pemilik/admin" di cek di dalam logic (butuh tahu id ruangan)
+            // Soft delete — hanya guru pembuat
             $res = $logic->delete($user, (int) ($body['id'] ?? 0));
+            break;
+
+        case 'restore':
+            // Admin pulihkan ruangan dari trash
+            require_role_json([ROLE_ADMIN]);
+            $res = $logic->restore($user, (int) ($body['id'] ?? 0));
+            break;
+
+        case 'force_delete':
+            // Admin hapus permanen ruangan dari trash
+            require_role_json([ROLE_ADMIN]);
+            $res = $logic->forceDelete($user, (int) ($body['id'] ?? 0));
             break;
 
         case 'rename':

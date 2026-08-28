@@ -77,6 +77,8 @@ class ActivityLogger
         $total = (int) $stmt->fetchColumn();
 
         // Fetch page
+        // PDO MySQL tidak mendukung parameterized LIMIT/OFFSET,
+        // jadi kita cast ke (int) untuk mencegah SQL injection.
         $limit  = min(100, max(1, (int) ($filters['limit'] ?? 50)));
         $offset = max(0, (int) ($filters['offset'] ?? 0));
 

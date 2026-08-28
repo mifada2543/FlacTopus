@@ -29,16 +29,21 @@
 set -euo pipefail
 cd "$(dirname "$0")"
 
-echo "▶ 1/3 Menjalankan vite build (frontend)..."
+echo "▶ 1/4 Menjalankan vite build (frontend)..."
 ( cd frontend && npm run build )
 
-echo "▶ 2/3 Menyalin index.html hasil build ke root..."
+echo "▶ 2/4 Menyalin index.html hasil build ke root..."
 cp frontend/dist/index.html index.html
 
-echo "▶ 3/3 Menyalin bundle JS/CSS ke node-assets/ (root)..."
+echo "▶ 3/4 Menyalin bundle JS/CSS ke node-assets/ (root)..."
 rm -rf node-assets
 mkdir -p node-assets
 cp -r frontend/dist/node-assets/. node-assets/
+
+echo "▶ 4/4 Menyalin file public (gambar, suara, dll) ke root..."
+# Vite copy public/ ke dist/ saat build. Kita copy semua file dari dist/
+# KECUALI index.html dan node-assets/ (sudah ditangani di atas).
+rsync -a --exclude='index.html' --exclude='node-assets/' --exclude='.htaccess' frontend/dist/ .
 
 # Bersihkan artefak favicon lama di root (sejak kini sumbernya di assets/img/)
 rm -f favicon.svg icons.svg
