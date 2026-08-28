@@ -41,8 +41,10 @@ try {
         [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION, PDO::ATTR_EMULATE_PREPARES => false]
     );
 
-    $pdo->exec("CREATE DATABASE IF NOT EXISTS {$dbName} CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci");
-    $pdo->exec("USE {$dbName}");
+    // $dbName adalah konstanta hardcoded, tapi kita sanitasi untuk defense-in-depth
+    $safeDbName = preg_replace('/[^a-zA-Z0-9_]/', '', $dbName);
+    $pdo->exec("CREATE DATABASE IF NOT EXISTS {$safeDbName} CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci");
+    $pdo->exec("USE {$safeDbName}");
     $pdo->exec("SET time_zone = '+07:00'");
     echo "✅ Koneksi ke database '{$dbName}' berhasil.\n\n";
 
@@ -55,19 +57,29 @@ try {
     $currentVersion = (int) $pdo->query("SELECT COALESCE(MAX(version), 0) FROM schema_version")->fetchColumn();
     echo "📌 Versi database saat ini: v{$currentVersion}\n\n";
 
+    // === Helper: sanitasi identifier (alphanumeric + underscore) ===
+    function sanitizeId(string $id): string {
+        return preg_replace('/[^a-zA-Z0-9_]/', '', $id);
+    }
+
     // === Helper: cek tabel ada ===
     function tableExists(PDO $db, string $name): bool {
+        $name = sanitizeId($name); // defense-in-depth
         return (bool) $db->query("SHOW TABLES LIKE '{$name}'")->fetch();
     }
 
     // === Helper: cek kolom ada ===
     function columnExists(PDO $db, string $table, string $col): bool {
+        $table = sanitizeId($table);
+        $col = sanitizeId($col);
         $cols = $db->query("SHOW COLUMNS FROM `{$table}` LIKE '{$col}'")->fetch();
         return (bool) $cols;
     }
 
     // === Helper: cek index ada ===
     function indexExists(PDO $db, string $table, string $key): bool {
+        $table = sanitizeId($table);
+        $key = sanitizeId($key);
         $idx = $db->query("SHOW INDEX FROM `{$table}` WHERE Key_name = '{$key}'")->fetch();
         return (bool) $idx;
     }
@@ -236,6 +248,24 @@ try {
                 ) ENGINE=InnoDB");
             }
             $pdo->exec("INSERT IGNORE INTO schema_version (version, description) VALUES (5, 'Tambah tabel quiz_attempts')");
+            echo "✅\n";
+            $applied++;
+        } catch (PDOException $e) { echo "❌ {$e->getMessage()}\n"; exit(1); }
+    }
+
+    // ── v6: Tambah kolom deleted_at & deleted_by ke ruangan (soft delete) ──
+    if ($currentVersion < 6) {
+        echo "🔄 v6: Tambah kolom deleted_at, deleted_by ke ruangan (soft delete)... ";
+        try {
+            if (tableExists($pdo, 'ruangan')) {
+                if (!columnExists($pdo, 'ruangan', 'deleted_at')) {
+                    $pdo->exec("ALTER TABLE ruangan ADD COLUMN deleted_at TIMESTAMP NULL DEFAULT NULL AFTER last_active_at");
+                }
+                if (!columnExists($pdo, 'ruangan', 'deleted_by')) {
+                    $pdo->exec("ALTER TABLE ruangan ADD COLUMN deleted_by INT UNSIGNED NULL DEFAULT NULL AFTER deleted_at");
+                }
+            }
+            $pdo->exec("INSERT IGNORE INTO schema_version (version, description) VALUES (6, 'Tambah kolom deleted_at, deleted_by ke ruangan')");
             echo "✅\n";
             $applied++;
         } catch (PDOException $e) { echo "❌ {$e->getMessage()}\n"; exit(1); }

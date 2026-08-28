@@ -51,55 +51,6 @@ if ($method === 'GET') {
         json_response(['success' => true, 'stats' => $stats]);
     }
 
-    // --- Statistik ruangan ---
-    if ($action === 'room_stats') {
-        $stmt = $db->query(
-            "SELECT
-                COUNT(*) AS total,
-                SUM(last_active_at > NOW() - INTERVAL 300 SECOND) AS online,
-                SUM(last_active_at > NOW() - INTERVAL 3600 SECOND) AS active_1h,
-                SUM(last_active_at <= NOW() - INTERVAL 7200 SECOND) AS expired
-             FROM ruangan"
-        );
-        $roomStats = $stmt->fetch();
-
-        $stmt2 = $db->query('SELECT COUNT(*) AS total FROM class_members');
-        $memberTotal = $stmt2->fetchColumn();
-
-        $stmt3 = $db->query(
-            "SELECT r.id, r.nama, r.kode_ruangan, u.name AS guru,
-                    COUNT(cm.id) AS anggota,
-                    r.last_active_at,
-                    GREATEST(0, TIMESTAMPDIFF(SECOND, NOW(), DATE_ADD(r.last_active_at, INTERVAL 7200 SECOND))) AS sisa_detik
-             FROM ruangan r
-             JOIN users u ON u.id = r.user_id
-             LEFT JOIN class_members cm ON cm.ruangan_id = r.id
-             GROUP BY r.id
-             ORDER BY r.created_at DESC"
-        );
-        $roomList = $stmt3->fetchAll();
-
-        json_response([
-            'success' => true,
-            'room_stats' => [
-                'total'        => (int) ($roomStats['total'] ?? 0),
-                'online'       => (int) ($roomStats['online'] ?? 0),
-                'active_1h'    => (int) ($roomStats['active_1h'] ?? 0),
-                'expired'      => (int) ($roomStats['expired'] ?? 0),
-                'total_members'=> (int) $memberTotal,
-            ],
-            'rooms' => array_map(fn($r) => [
-                'id'            => (int) $r['id'],
-                'nama'          => $r['nama'],
-                'kode_ruangan'  => $r['kode_ruangan'],
-                'guru'          => $r['guru'],
-                'anggota'       => (int) $r['anggota'],
-                'last_active_at'=> $r['last_active_at'],
-                'sisa_detik'    => (int) $r['sisa_detik'],
-            ], $roomList),
-        ]);
-    }
-
     // --- Activity logs ---
     if ($action === 'activity_logs') {
         $logger = new ActivityLogger();
@@ -299,6 +250,34 @@ if ($method === 'POST') {
             $res = $logic->kick($user, $roomId, $memberUserId);
             if ($res['success']) {
                 $logger->log($user['id'], 'kick_member');
+            }
+            json_response($res, $res['success'] ? 200 : 400);
+
+        // --- Restore trashed room (soft-deleted) ---
+        case 'restore':
+            $roomId = (int) ($body['id'] ?? 0);
+            if ($roomId <= 0) {
+                json_response(['success' => false, 'message' => 'Parameter id tidak valid.'], 400);
+            }
+            require_once __DIR__ . '/../logic/RuanganLogic.php';
+            $logic = new RuanganLogic();
+            $res = $logic->restore($user, $roomId);
+            if ($res['success']) {
+                $logger->log($user['id'], 'restore_room');
+            }
+            json_response($res, $res['success'] ? 200 : 400);
+
+        // --- Force delete trashed room (permanent) ---
+        case 'force_delete':
+            $roomId = (int) ($body['id'] ?? 0);
+            if ($roomId <= 0) {
+                json_response(['success' => false, 'message' => 'Parameter id tidak valid.'], 400);
+            }
+            require_once __DIR__ . '/../logic/RuanganLogic.php';
+            $logic = new RuanganLogic();
+            $res = $logic->forceDelete($user, $roomId);
+            if ($res['success']) {
+                $logger->log($user['id'], 'force_delete_room');
             }
             json_response($res, $res['success'] ? 200 : 400);
 

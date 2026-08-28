@@ -28,8 +28,9 @@ export default function Login() {
         if (!active) return;
         setCsrfToken(d.csrf_token || '');
         if (d.logged_in && d.user) {
-          // Sudah login → langsung redirect (cegah double session)
-          navigate('/classes', { replace: true });
+          // Sudah login → langsung redirect berdasarkan role
+          const target = d.user.role === 'admin' ? '/admin' : '/classes';
+          navigate(target, { replace: true });
           return;
         }
         setSessionChecked(true);
@@ -69,7 +70,9 @@ export default function Login() {
       if (data.success) {
         // Kembali ke halaman yang tadi dituju (disimpan ProtectedRoute di state.from)
         const from = location.state?.from?.pathname;
-        navigate(from && from !== '/login' && from !== '/register' ? from : '/classes');
+        // Redirect berdasarkan role setelah login
+        const defaultPath = data.user?.role === 'admin' ? '/admin' : '/classes';
+        navigate(from && from !== '/login' && from !== '/register' ? from : defaultPath);
       } else if (res.status === 429) {
         // Rate limited — terlalu banyak percobaan gagal
         setIsRateLimited(true);
