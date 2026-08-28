@@ -20,11 +20,9 @@ import './index.css';
 //   teacher → kelas + analisis kelas + mengelola silabus
 //   admin   → dashboard khusus admin (belum dibuat)
 function App() {
-  // Aplikasi disajikan di subfolder /FlacTopus/ (XAMPP htdocs),
-  // jadi semua route React Router harus berbasename di sana —
-  // kalau tidak, link seperti /login malah menuju localhost root.
+  // basename mengikuti base path dari Vite (base: '/' untuk production)
   return (
-    <Router basename="/FlacTopus">
+    <Router basename="/">
       <Routes>
         {/* Publik (guest) */}
         <Route path="/" element={<Landing />} />

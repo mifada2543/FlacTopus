@@ -3,7 +3,7 @@ import react from '@vitejs/plugin-react'
 
 // https://vite.dev/config/
 export default defineConfig({
-  base: '/FlacTopus/',
+  base: '/',
   // Hasil build (JS/CSS) ditempatkan di folder 'node-assets' (di-root project)
   // agar tidak bercampur dengan 'assets/' milik halaman PHP (Bootstrap/Tailwind/htmx).
   build: {

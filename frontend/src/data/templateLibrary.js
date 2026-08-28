@@ -4,7 +4,7 @@ export const templates = [
     name: 'Alur Linear (Dasar)',
     description: 'Cocok untuk materi yang berurutan secara bertahap satu per satu.',
     iconType: 'linear',
-    image: '/FlacTopus/preview-linear.png',
+    image: '/preview-linear.png',
     nodes: [
       { id: 'n1', title: 'Materi Pembuka', type: 'materi' },
       { id: 'n2', title: 'Latihan Soal', type: 'kuis' },
@@ -28,7 +28,7 @@ export const templates = [
     name: 'Alur Bercabang (Pengayaan)',
     description: 'Satu materi dasar yang bercabang ke dua tes dengan tingkat kesulitan berbeda.',
     iconType: 'branching',
-    image: '/FlacTopus/preview-branching.png',
+    image: '/preview-branching.png',
     nodes: [
       { id: 'n1', title: 'Materi Konsep Dasar', type: 'materi' },
       { id: 'n2', title: 'Jalur Pengayaan (Sulit)', type: 'kuis' },
@@ -49,7 +49,7 @@ export const templates = [
     name: 'Ujian Akhir (Boss Fight)',
     description: 'Dua materi terpisah yang harus diselesaikan untuk membuka satu Ujian Akhir besar.',
     iconType: 'boss',
-    image: '/FlacTopus/preview-boss.png',
+    image: '/preview-boss.png',
     nodes: [
       { id: 'n1', title: 'Materi Cabang A', type: 'materi' },
       { id: 'n2', title: 'Materi Cabang B', type: 'materi' },
