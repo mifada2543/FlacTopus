@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { X, Maximize2, Minimize2, Search, BookOpen, HelpCircle, MapPin, Edit3 } from 'lucide-react';
+import DOMPurify from 'dompurify';
 
 export default function SyllabusExplorerModal({ isOpen, onClose, nodes, isBlackTheme, onNavigateToBuilder }) {
   const [isMaximized, setIsMaximized] = useState(false);
@@ -300,7 +301,7 @@ export default function SyllabusExplorerModal({ isOpen, onClose, nodes, isBlackT
                                 {item.type === 'ice_breaking' ? (
                                   <p style={{ fontStyle: 'italic', opacity: 0.8 }}>Sesi interaktif ice breaking.</p>
                                 ) : item.type === 'materi' ? (
-                                  <div dangerouslySetInnerHTML={{ __html: item.content }} />
+                                  <div dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(item.content || '', { ALLOWED_TAGS: ['b', 'i', 'em', 'strong', 'p', 'br', 'ul', 'ol', 'li', 'code', 'pre', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'span', 'div', 'blockquote'] }) }} />
                                 ) : (
                                   <div>
                                     <p style={{ margin: '0 0 0.5rem', fontWeight: 600 }}>{item.quiz?.question}</p>
