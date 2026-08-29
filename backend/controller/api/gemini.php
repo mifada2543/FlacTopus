@@ -87,16 +87,19 @@ function proxySocraticFeedback(string $apiKey, array $body): string
     $answer   = (string) ($body['answer'] ?? '');
     $context  = (string) ($body['context'] ?? '');
 
-    $prompt = <<<PROMPT
+    // System instruction: petunjuk role & aturan — DIISOLASI dari input user
+    // agar murid tidak bisa memanipulasi prompt lewat quiz question/answer.
+    $systemInstruction = <<<PROMPT
 Kamu adalah seorang "Socratic AI Tutor". Murid sedang mengerjakan kuis.
-Pertanyaan Kuis: "{$question}"
-Jawaban Murid (Salah): "{$answer}"
-Instruksi Guru: "{$context}"
-Tugasmu: Berikan respons Socratic. JANGAN berikan jawaban langsung. Bimbing murid memikirkan jawabannya sendiri. 
+Tugasmu: Berikan respons Socratic. JANGAN berikan jawaban langsung. Bimbing murid memikirkan jawabannya sendiri.
 Bicara dengan bahasa Indonesia santai. Maksimal 3 kalimat.
 PROMPT;
 
-    return callGeminiSingle($apiKey, 'gemini-2.0-flash-lite', $prompt);
+    // User content: data spesifik kuis ini — dikirim sebagai user message
+    // sehingga Gemini memperlakukannya sebagai input, bukan instruksi.
+    $userContent = "Pertanyaan Kuis: \"{$question}\"\nJawaban Murid (Salah): \"{$answer}\"\nInstruksi Guru: \"{$context}\"";
+
+    return callGeminiSingle($apiKey, 'gemini-2.0-flash-lite', $userContent, $systemInstruction);
 }
 
 /**
@@ -153,12 +156,12 @@ Format JSON persis seperti ini (isi kontennya dengan teori dan kuis nyata yang r
 PROMPT;
 
     if ($isPdf) {
-        $parts = [$promptText, "\n\nIsi Dokumen PDF:\n" . $inputData];
+        $parts = ["Isi Dokumen PDF:\n" . $inputData];
     } else {
-        $parts = [$promptText, "\n\nTopik materi: " . $inputData];
+        $parts = ["Topik materi: " . $inputData];
     }
 
-    $text = callGeminiMultiPart($apiKey, 'gemini-2.5-flash', $parts);
+    $text = callGeminiMultiPart($apiKey, 'gemini-2.5-flash', $parts, $promptText);
     $text = preg_replace('/```json/i', '', $text);
     $text = preg_replace('/```/i', '', $text);
     $text = trim($text);
@@ -233,28 +236,36 @@ PROMPT;
 
 /**
  * Single generateContent — satu prompt, satu response.
+ * Optional $systemInstruction: diisolasi dari user content (prompt injection prevention).
  */
-function callGeminiSingle(string $apiKey, string $model, string $prompt): string
+function callGeminiSingle(string $apiKey, string $model, string $userContent, string $systemInstruction = ''): string
 {
     $url = "https://generativelanguage.googleapis.com/v1beta/models/{$model}:generateContent?key={$apiKey}";
 
-    $payload = json_encode([
+    $payload = [
         'contents' => [
-            ['parts' => [['text' => $prompt]]]
+            ['parts' => [['text' => $userContent]]]
         ],
         'generationConfig' => [
             'temperature'     => 0.7,
             'maxOutputTokens' => 2048,
         ],
-    ]);
+    ];
 
-    return callGeminiApi($url, $payload);
+    if ($systemInstruction !== '') {
+        $payload['systemInstruction'] = [
+            'parts' => [['text' => $systemInstruction]],
+        ];
+    }
+
+    return callGeminiApi($url, json_encode($payload));
 }
 
 /**
  * Multi-part generateContent — beberapa parts.
+ * Optional $systemInstruction: diisolasi dari user content (prompt injection prevention).
  */
-function callGeminiMultiPart(string $apiKey, string $model, array $parts): string
+function callGeminiMultiPart(string $apiKey, string $model, array $parts, string $systemInstruction = ''): string
 {
     $url = "https://generativelanguage.googleapis.com/v1beta/models/{$model}:generateContent?key={$apiKey}";
 
@@ -263,7 +274,7 @@ function callGeminiMultiPart(string $apiKey, string $model, array $parts): strin
         $apiParts[] = ['text' => $part];
     }
 
-    $payload = json_encode([
+    $payload = [
         'contents' => [
             ['parts' => $apiParts]
         ],
@@ -271,9 +282,15 @@ function callGeminiMultiPart(string $apiKey, string $model, array $parts): strin
             'temperature'     => 0.7,
             'maxOutputTokens' => 8192,
         ],
-    ]);
+    ];
 
-    return callGeminiApi($url, $payload);
+    if ($systemInstruction !== '') {
+        $payload['systemInstruction'] = [
+            'parts' => [['text' => $systemInstruction]],
+        ];
+    }
+
+    return callGeminiApi($url, json_encode($payload));
 }
 
 /**

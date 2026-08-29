@@ -14,7 +14,6 @@ backend/
 │   │   ├── quiz.php          # Submit kuis, analytics, chat history, anti-cheat
 │   │   ├── admin.php         # Kelola user, ruangan, activity log (admin only)
 │   │   ├── gemini.php        # Backend proxy Gemini API (API key server-side)
-│   │   ├── nilai-input.php   # Input nilai
 │   │   └── .htaccess         # Izinkan akses *.php di folder ini
 │   ├── logic/                # Logika bisnis (DIBLOKIR akses langsung oleh .htaccess)
 │   │   ├── RuanganLogic.php  # CRUD ruangan, RBAC, syllabus, members

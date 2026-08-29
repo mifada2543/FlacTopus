@@ -46,7 +46,7 @@ function require_guest(): void
 
 /**
  * Wajib login — versi API JSON. Jika belum login, balas 401 + JSON.
- * (Dipakai endpoint API yang dilindungi, mis. nilai-input.php)
+ * (Dipakai endpoint API yang dilindungi, mis. ruangan.php, admin.php, gemini.php)
  *
  * @return array{id:int,name:string,email:string,role:string}
  */
