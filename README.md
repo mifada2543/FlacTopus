@@ -84,11 +84,12 @@ Kuis memiliki mode **Boss Fight** bergaya RPG lengkap dengan:
 - Guru bisa daftar **tanpa Master Key** → status `pending` (perlu verifikasi admin)
 - Admin generate Master Key di Panel Admin → deskripsi + expiry date
 
-### 🟢 Auto-Approve Murid
-- Admin punya **toggle ON/OFF** di Panel Admin
-- Jika **ON**: Murid langsung aktif tanpa approval admin
-- Jika **OFF**: Murid harus menunggu approval admin
+### 🟢 Auto-Approve (Murid & Guru Terpisah)
+- Admin punya **2 toggle terpisah** di Panel Admin:
+  - **Auto-Approve Murid**: Jika ON → murid langsung aktif tanpa approval
+  - **Auto-Approve Guru**: Jika ON → guru tanpa Master Key langsung aktif
 - Cocok untuk situasi trafik normal (ON) atau butuh keamanan ekstra (OFF)
+- Guru dengan **Master Key** selalu langsung aktif (tidak terpengaruh toggle)
 
 ### 🚀 Auto-Login After Register
 - Jika auto-approve **ON** → murid langsung redirect ke `/classes` (tidak perlu login lagi)
@@ -96,7 +97,7 @@ Kuis memiliki mode **Boss Fight** bergaya RPG lengkap dengan:
 - Jika status **pending** → redirect ke halaman login dengan pesan
 
 ### 🛡️ Panel Admin (4 Tab)
-- **👥 Kelola User** — filter/search, approve/reject registrasi, ubah role, reset password, **toggle Auto-Approve**
+- **👥 Kelola User** — filter/search, approve/reject registrasi, ubah role, reset password, **2 toggle Auto-Approve (Murid & Guru)**
 - **🔑 Master Key** — generate, lihat, hapus master key untuk registrasi guru
 - **🗑️ Ruangan Terhapus** — lihat ruangan soft-deleted, **pulihkan** atau **hapus permanen** (retensi 30 hari)
 - **📊 Activity Log** — audit trail semua aksi + auto-refresh 15 detik
@@ -122,7 +123,7 @@ Kuis memiliki mode **Boss Fight** bergaya RPG lengkap dengan:
 | **Build** | Vite build → bash build.sh → XAMPP | Production-ready |
 | **Linting** | OxLint | Cepat, ringan |
 | **CI/CD** | GitHub Actions | Secret scanning |
-| **Migrasi** | db/migration.php (CLI-only) | Version-based, idempotent (v1-v8) |
+| **Migrasi** | db/migration.php (CLI-only) | Version-based, idempotent (v1-v9) |
 
 ---
 
@@ -397,8 +398,9 @@ Semua aktivitas dicatat ke tabel `activity_log`: login, logout, register, approv
 
 **Registrasi Guru:**
 1. Pilih "Guru" → isi form → Submit
-2. **Tanpa Master Key** → status `pending` → perlu verifikasi admin
-3. **Dengan Master Key** → status `active` → auto-login → redirect ke `/classes`
+2. **Dengan Master Key** → status `active` → auto-login → redirect ke `/classes`
+3. **Tanpa Master Key + Auto-Approve ON** → status `active` → auto-login → redirect ke `/classes`
+4. **Tanpa Master Key + Auto-Approve OFF** → status `pending` → perlu verifikasi admin
 
 **Login:**
 1. User buka app → status `guest`
@@ -478,6 +480,7 @@ Semua aktivitas dicatat ke tabel `activity_log`: login, logout, register, approv
 | Key | Default | Deskripsi |
 | --- | --- | --- |
 | `student_auto_approve` | `0` | Jika `1`, murid langsung aktif tanpa approve admin |
+| `teacher_auto_approve` | `0` | Jika `1`, guru tanpa Master Key langsung aktif |
 | `maintenance_mode` | `0` | Jika `1`, site dalam mode maintenance |
 
 ### Tabel `quiz_attempts`
@@ -599,8 +602,9 @@ php db/migration.php
 # 📋 v5: quiz_attempts (rekam jawaban murid)
 # 📋 v6: deleted_at, deleted_by (soft delete)
 # 📋 v7: master_keys (registrasi guru via token)
-# 📋 v8: app_settings (auto-approve toggle, maintenance mode)
-# ✅ Database sudah versi terbaru (v8).
+# 📋 v8: app_settings (auto-approve, maintenance mode)
+# 📋 v9: tambah setting teacher_auto_approve
+# ✅ Database sudah versi terbaru (v9).
 ```
 
 | Fitur | Keterangan |
@@ -633,7 +637,7 @@ php db/migration.php
 - **Password:** Semua di-hash bcrypt; demo password = `password123`
 - **Timezone:** MySQL timezone = WIB (+07:00)
 - **Register Murid:** Auto-approve ON → langsung aktif; OFF → pending approval admin
-- **Register Guru:** Tanpa Master Key → pending; Dengan Master Key → langsung aktif
+- **Register Guru:** Dengan Master Key → langsung aktif; Tanpa Master Key + Auto-approve ON → langsung aktif; Tanpa Master Key + Auto-approve OFF → pending
 - **Admin Access:** Admin yang akses `/classes` → otomatis redirect ke `/admin`
 - **Soft Delete:** Ruangan yang dihapus guru tersimpan 30 hari sebelum dihapus permanen oleh GarbageCollector
 
