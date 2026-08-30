@@ -324,6 +324,22 @@ try {
         } catch (PDOException $e) { echo "❌ {$e->getMessage()}\n"; exit(1); }
     }
 
+    // ── v9: Tambah setting teacher_auto_approve ──
+    if ($currentVersion < 9) {
+        echo "🔄 v9: Tambah setting teacher_auto_approve... ";
+        try {
+            // Cek apakah setting sudah ada
+            $check = $pdo->query("SELECT setting_key FROM app_settings WHERE setting_key = 'teacher_auto_approve'");
+            if (!$check || !$check->fetch()) {
+                $pdo->exec("INSERT INTO app_settings (setting_key, setting_value, description) VALUES
+                    ('teacher_auto_approve', '0', 'Jika 1, guru langsung aktif tanpa approve admin')");
+            }
+            $pdo->exec("INSERT IGNORE INTO schema_version (version, description) VALUES (9, 'Tambah setting teacher_auto_approve')");
+            echo "✅\n";
+            $applied++;
+        } catch (PDOException $e) { echo "❌ {$e->getMessage()}\n"; exit(1); }
+    }
+
     // Ringkasan
     $newVersion = (int) $pdo->query("SELECT MAX(version) FROM schema_version")->fetchColumn();
     echo "\n";

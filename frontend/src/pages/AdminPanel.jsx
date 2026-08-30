@@ -336,13 +336,13 @@ function UserManagementTab({ csrfToken, showMsg }) {
     } catch (err) { showMsg('error', err.message); } finally { setActionLoading(false); }
   };
 
-  const handleToggleAutoApprove = async () => {
-    const currentValue = settings.student_auto_approve?.value || '0';
+  const handleToggleAutoApprove = async (settingKey, label) => {
+    const currentValue = settings[settingKey]?.value || '0';
     const newValue = currentValue === '1' ? '0' : '1';
     setActionLoading(true);
     try {
-      await adminPost(csrfToken, { action: 'update_setting', key: 'student_auto_approve', value: newValue });
-      showMsg('success', `Auto-approve murid ${newValue === '1' ? 'DINYALAKAN' : 'DIMATIKAN'}.`);
+      await adminPost(csrfToken, { action: 'update_setting', key: settingKey, value: newValue });
+      showMsg('success', `Auto-approve ${label} ${newValue === '1' ? 'DINYALAKAN' : 'DIMATIKAN'}.`);
       await loadData();
     } catch (err) { showMsg('error', err.message); } finally { setActionLoading(false); }
   };
@@ -377,39 +377,77 @@ function UserManagementTab({ csrfToken, showMsg }) {
         </div>
       )}
 
-      {/* Auto-Approve Toggle */}
-      <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border-color)', borderRadius: '12px', padding: '1rem 1.5rem', marginBottom: '1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem' }}>
-          <div style={{ width: '40px', height: '40px', borderRadius: '10px', background: settings.student_auto_approve?.value === '1' ? 'rgba(16, 185, 129, 0.15)' : 'rgba(107, 114, 128, 0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <UserCheck size={20} color={settings.student_auto_approve?.value === '1' ? 'var(--accent-green)' : '#9ca3af'} />
+      {/* Auto-Approve Toggles */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1rem', marginBottom: '1.5rem' }}>
+        {/* Toggle: Murid */}
+        <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border-color)', borderRadius: '12px', padding: '1rem 1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '1rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem' }}>
+            <div style={{ width: '40px', height: '40px', borderRadius: '10px', background: settings.student_auto_approve?.value === '1' ? 'rgba(16, 185, 129, 0.15)' : 'rgba(107, 114, 128, 0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <BookOpen size={20} color={settings.student_auto_approve?.value === '1' ? 'var(--accent-green)' : '#9ca3af'} />
+            </div>
+            <div>
+              <p style={{ margin: 0, fontWeight: 700, fontSize: '0.9rem', color: 'var(--text-main)' }}>Auto-Approve Murid</p>
+              <p style={{ margin: '0.2rem 0 0', fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+                {settings.student_auto_approve?.value === '1'
+                  ? '✅ Murid langsung aktif' 
+                  : '🔒 Murid tunggu approval'}
+              </p>
+            </div>
           </div>
-          <div>
-            <p style={{ margin: 0, fontWeight: 700, fontSize: '0.95rem', color: 'var(--text-main)' }}>Auto-Approve Murid</p>
-            <p style={{ margin: '0.2rem 0 0', fontSize: '0.82rem', color: 'var(--text-muted)' }}>
-              {settings.student_auto_approve?.value === '1'
-                ? '✅ Murid langsung aktif tanpa approval' 
-                : '🔒 Murid harus menunggu approval admin'}
-            </p>
-          </div>
+          <button
+            onClick={() => handleToggleAutoApprove('student_auto_approve', 'murid')}
+            disabled={actionLoading}
+            style={{
+              position: 'relative', width: '52px', height: '28px', borderRadius: '14px',
+              border: 'none', cursor: actionLoading ? 'not-allowed' : 'pointer',
+              background: settings.student_auto_approve?.value === '1' ? 'var(--accent-green)' : '#4b5563',
+              transition: 'all 0.3s', opacity: actionLoading ? 0.7 : 1, flexShrink: 0,
+            }}
+          >
+            <div style={{
+              position: 'absolute', top: '3px',
+              left: settings.student_auto_approve?.value === '1' ? '27px' : '3px',
+              width: '22px', height: '22px', borderRadius: '50%',
+              background: 'white', transition: 'all 0.3s',
+              boxShadow: '0 2px 4px rgba(0,0,0,0.2)',
+            }} />
+          </button>
         </div>
-        <button
-          onClick={handleToggleAutoApprove}
-          disabled={actionLoading}
-          style={{
-            position: 'relative', width: '52px', height: '28px', borderRadius: '14px',
-            border: 'none', cursor: actionLoading ? 'not-allowed' : 'pointer',
-            background: settings.student_auto_approve?.value === '1' ? 'var(--accent-green)' : '#4b5563',
-            transition: 'all 0.3s', opacity: actionLoading ? 0.7 : 1,
-          }}
-        >
-          <div style={{
-            position: 'absolute', top: '3px',
-            left: settings.student_auto_approve?.value === '1' ? '27px' : '3px',
-            width: '22px', height: '22px', borderRadius: '50%',
-            background: 'white', transition: 'all 0.3s',
-            boxShadow: '0 2px 4px rgba(0,0,0,0.2)',
-          }} />
-        </button>
+
+        {/* Toggle: Guru */}
+        <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border-color)', borderRadius: '12px', padding: '1rem 1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '1rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem' }}>
+            <div style={{ width: '40px', height: '40px', borderRadius: '10px', background: settings.teacher_auto_approve?.value === '1' ? 'rgba(59, 130, 246, 0.15)' : 'rgba(107, 114, 128, 0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <GraduationCap size={20} color={settings.teacher_auto_approve?.value === '1' ? '#60a5fa' : '#9ca3af'} />
+            </div>
+            <div>
+              <p style={{ margin: 0, fontWeight: 700, fontSize: '0.9rem', color: 'var(--text-main)' }}>Auto-Approve Guru</p>
+              <p style={{ margin: '0.2rem 0 0', fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+                {settings.teacher_auto_approve?.value === '1'
+                  ? '✅ Guru tanpa Master Key langsung aktif' 
+                  : '🔒 Guru tanpa Master Key tunggu approval'}
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={() => handleToggleAutoApprove('teacher_auto_approve', 'guru')}
+            disabled={actionLoading}
+            style={{
+              position: 'relative', width: '52px', height: '28px', borderRadius: '14px',
+              border: 'none', cursor: actionLoading ? 'not-allowed' : 'pointer',
+              background: settings.teacher_auto_approve?.value === '1' ? '#3b82f6' : '#4b5563',
+              transition: 'all 0.3s', opacity: actionLoading ? 0.7 : 1, flexShrink: 0,
+            }}
+          >
+            <div style={{
+              position: 'absolute', top: '3px',
+              left: settings.teacher_auto_approve?.value === '1' ? '27px' : '3px',
+              width: '22px', height: '22px', borderRadius: '50%',
+              background: 'white', transition: 'all 0.3s',
+              boxShadow: '0 2px 4px rgba(0,0,0,0.2)',
+            }} />
+          </button>
+        </div>
       </div>
 
       {/* Filters */}
