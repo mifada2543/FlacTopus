@@ -48,5 +48,8 @@ rsync -a --exclude='index.html' --exclude='node-assets/' --exclude='.htaccess' f
 # Bersihkan artefak favicon lama di root (sejak kini sumbernya di assets/img/)
 rm -f favicon.svg icons.svg
 
+# Pastikan storage directory bisa ditulis oleh Apache (daemon user)
+chmod -R 777 storage/ 2>/dev/null || true
+
 echo "✅ Selesai! Aplikasi siap di http://localhost/FlacTopus/"
 echo "⚠️  index.html & node-assets/ di root adalah hasil build — JANGAN di-commit."
