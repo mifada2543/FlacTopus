@@ -235,9 +235,9 @@ const FeatureNode = ({ data, selected }) => {
 };
 
 const OctopusNode = ({ data }) => {
-  const { RiveComponent } = useRive({
+  const { rive, RiveComponent } = useRive({
     src: `${import.meta.env.BASE_URL}assets/4974-10065-octopus-loop.riv`,
-    stateMachines: 'State Machine 1',
+    stateMachine: 'State Machine 1',
     autoplay: true,
   });
 
@@ -273,7 +273,7 @@ const OctopusNode = ({ data }) => {
         height: '100%', 
         mixBlendMode: 'screen', 
       }}>
-        <RiveComponent />
+        <RiveComponent style={{ width: '200px', height: '200px' }} />
       </div>
     </div>
   );
