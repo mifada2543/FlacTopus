@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { Leaf, User, Mail, Lock, UserPlus, Loader2 } from 'lucide-react';
+import { Leaf, User, Mail, Lock, Key, UserPlus, Loader2, GraduationCap, BookOpen } from 'lucide-react';
 import { AUTH_API } from '../utils/api';
 
 export default function Register() {
@@ -9,7 +9,9 @@ export default function Register() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
-  const role = 'student'; // Selalu murid — guru ditambahkan admin
+  const [website, setWebsite] = useState(''); // Honeypot field (anti-bot)
+  const [role, setRole] = useState('student'); // student atau teacher
+  const [masterKey, setMasterKey] = useState(''); // Master Key untuk guru
   const [error, setError] = useState('');
   const [isRateLimited, setIsRateLimited] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -62,11 +64,17 @@ export default function Register() {
         method: 'POST',
         credentials: 'same-origin',
         headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrfToken },
-        body: JSON.stringify({ name, email, password, role }),
+        body: JSON.stringify({ name, email, password, role, website, master_key: masterKey }),
       });
       const data = await res.json();
       if (data.success) {
-        navigate('/login', { state: { registered: true, pending: true } });
+        if (data.auto_login) {
+          // Auto-login: langsung ke halaman kelas
+          navigate('/classes', { replace: true });
+        } else {
+          // Pending: redirect ke login dengan pesan
+          navigate('/login', { state: { registered: true, pending: true } });
+        }
       } else if (res.status === 429) {
         setIsRateLimited(true);
         setError(data.message || 'Terlalu banyak percobaan. Coba lagi nanti.');
@@ -193,8 +201,86 @@ export default function Register() {
               </div>
             </div>
 
-            <div style={{ marginBottom: '1.6rem', padding: '0.8rem 1rem', background: 'rgba(16, 185, 129, 0.08)', border: '1px solid rgba(16, 185, 129, 0.2)', borderRadius: '10px', fontSize: '0.85rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-              📚 Mendaftar sebagai <strong style={{ color: 'var(--accent-green)' }}>Murid</strong>
+            {/* Role Toggle: Murid atau Guru */}
+            <div style={{ marginBottom: '1.3rem' }}>
+              <label style={{ display: 'block', marginBottom: '0.6rem', color: 'var(--text-main)', fontSize: '0.85rem', fontWeight: 600 }}>Daftar Sebagai</label>
+              <div style={{ display: 'flex', gap: '0.5rem' }}>
+                <button
+                  type="button"
+                  onClick={() => setRole('student')}
+                  style={{
+                    flex: 1, padding: '0.75rem', borderRadius: '10px',
+                    border: `2px solid ${role === 'student' ? 'var(--accent-green)' : 'var(--border-color)'}`,
+                    background: role === 'student' ? 'rgba(16, 185, 129, 0.15)' : 'transparent',
+                    color: role === 'student' ? 'var(--accent-green)' : 'var(--text-muted)',
+                    cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem',
+                    fontWeight: 600, fontSize: '0.9rem', transition: 'all 0.2s',
+                  }}
+                >
+                  <BookOpen size={18} /> Murid
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setRole('teacher')}
+                  style={{
+                    flex: 1, padding: '0.75rem', borderRadius: '10px',
+                    border: `2px solid ${role === 'teacher' ? '#3b82f6' : 'var(--border-color)'}`,
+                    background: role === 'teacher' ? 'rgba(59, 130, 246, 0.15)' : 'transparent',
+                    color: role === 'teacher' ? '#60a5fa' : 'var(--text-muted)',
+                    cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem',
+                    fontWeight: 600, fontSize: '0.9rem', transition: 'all 0.2s',
+                  }}
+                >
+                  <GraduationCap size={18} /> Guru
+                </button>
+              </div>
+            </div>
+
+            {/* Master Key Input — muncul jika role = teacher */}
+            {role === 'teacher' && (
+              <div style={{ marginBottom: '1.1rem' }}>
+                <label style={{ display: 'block', marginBottom: '0.45rem', color: 'var(--text-main)', fontSize: '0.85rem', fontWeight: 600 }}>
+                  🔑 Master Key <span style={{ color: 'var(--text-muted)', fontWeight: 400 }}>(opsional)</span>
+                </label>
+                <div style={{ position: 'relative' }}>
+                  <Key size={18} style={iconStyle} />
+                  <input
+                    type="text"
+                    value={masterKey}
+                    onChange={(e) => setMasterKey(e.target.value)}
+                    placeholder="Masukkan Master Key jika punya"
+                    style={inputStyle}
+                    onFocus={(e) => (e.currentTarget.style.borderColor = '#3b82f6')}
+                    onBlur={(e) => (e.currentTarget.style.borderColor = 'var(--border-color)')}
+                  />
+                </div>
+                <div style={{ marginTop: '0.5rem', padding: '0.6rem', background: 'rgba(59, 130, 246, 0.08)', border: '1px solid rgba(59, 130, 246, 0.2)', borderRadius: '8px', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                  {masterKey ? (
+                    <span style={{ color: '#60a5fa' }}>✅ Dengan Master Key: Akun langsung aktif</span>
+                  ) : (
+                    <span>Tanpa Master Key: Akun perlu verifikasi admin</span>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Honeypot Field — tersembunyi dari manusia, terlihat oleh bot */}
+            <div style={{ position: 'absolute', left: '-9999px', opacity: 0, height: 0, overflow: 'hidden' }} aria-hidden="true">
+              <label htmlFor="website">Website</label>
+              <input
+                type="text"
+                id="website"
+                name="website"
+                value={website}
+                onChange={(e) => setWebsite(e.target.value)}
+                tabIndex="-1"
+                autoComplete="off"
+              />
+            </div>
+
+            <div style={{ marginBottom: '1.6rem', padding: '0.8rem 1rem', background: role === 'student' ? 'rgba(16, 185, 129, 0.08)' : 'rgba(59, 130, 246, 0.08)', border: `1px solid ${role === 'student' ? 'rgba(16, 185, 129, 0.2)' : 'rgba(59, 130, 246, 0.2)'}`, borderRadius: '10px', fontSize: '0.85rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              {role === 'student' ? '📚' : '👨‍🏫'} Mendaftar sebagai <strong style={{ color: role === 'student' ? 'var(--accent-green)' : '#60a5fa' }}>{role === 'student' ? 'Murid' : 'Guru'}</strong>
+              {role === 'teacher' && <span style={{ fontSize: '0.75rem', color: '#fbbf24' }}>(langsung aktif)</span>}
             </div>
 
             <button

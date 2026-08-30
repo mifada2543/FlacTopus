@@ -24,6 +24,7 @@
 
 require_once __DIR__ . '/../../../auth/auth.php';
 require_once __DIR__ . '/../logic/ActivityLogger.php';
+require_once __DIR__ . '/../logic/MasterKeyLogic.php';
 
 // Hanya admin yang boleh mengakses
 $user = require_role_json([ROLE_ADMIN]);
@@ -49,6 +50,32 @@ if ($method === 'GET') {
         );
         $stats = $stmt->fetch();
         json_response(['success' => true, 'stats' => $stats]);
+    }
+
+    // --- Master Keys list ---
+    if ($action === 'master_keys') {
+        $mkLogic = new MasterKeyLogic();
+        $result = $mkLogic->listAll();
+        json_response($result);
+    }
+
+    // --- Get App Settings ---
+    if ($action === 'settings') {
+        // Cek apakah tabel app_settings ada (migration v8)
+        $tableCheck = $db->query("SHOW TABLES LIKE 'app_settings'");
+        if (!$tableCheck || !$tableCheck->fetch()) {
+            // Tabel belum ada → return default settings kosong
+            json_response(['success' => true, 'settings' => []]);
+        }
+        $stmt = $db->query('SELECT setting_key, setting_value, description FROM app_settings');
+        $settings = [];
+        while ($row = $stmt->fetch()) {
+            $settings[$row['setting_key']] = [
+                'value'       => $row['setting_value'],
+                'description' => $row['description'],
+            ];
+        }
+        json_response(['success' => true, 'settings' => $settings]);
     }
 
     // --- Activity logs ---
@@ -237,6 +264,52 @@ if ($method === 'POST') {
             $stmt->execute([$hash, $userId]);
             $logger->log($user['id'], 'reset_password');
             json_response(['success' => true, 'message' => 'Password berhasil di-reset.']);
+
+        // --- Update App Setting ---
+        case 'update_setting':
+            $key = (string) ($body['key'] ?? '');
+            $value = (string) ($body['value'] ?? '');
+            $allowedKeys = ['student_auto_approve', 'maintenance_mode'];
+            if (!in_array($key, $allowedKeys, true)) {
+                json_response(['success' => false, 'message' => 'Setting tidak valid.'], 400);
+            }
+            if (!in_array($value, ['0', '1'], true)) {
+                json_response(['success' => false, 'message' => 'Value harus 0 atau 1.'], 400);
+            }
+            $stmt = $db->prepare('UPDATE app_settings SET setting_value = ? WHERE setting_key = ?');
+            $stmt->execute([$value, $key]);
+            if ($stmt->rowCount() === 0) {
+                // Insert if not exists
+                $db->prepare('INSERT INTO app_settings (setting_key, setting_value) VALUES (?, ?) ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value)')
+                    ->execute([$key, $value]);
+            }
+            $logger->log($user['id'], "update_setting_{$key}");
+            json_response(['success' => true, 'message' => 'Setting berhasil diperbarui.']);
+
+        // --- Generate Master Key ---
+        case 'generate_master_key':
+            $description = (string) ($body['description'] ?? '');
+            $maxUses = 1; // Single-use
+            $expiresAt = !empty($body['expires_at']) ? (string) $body['expires_at'] : null;
+            $mkLogic = new MasterKeyLogic();
+            $result = $mkLogic->generate($user, $description, $maxUses, $expiresAt);
+            if ($result['success']) {
+                $logger->log($user['id'], 'generate_master_key');
+            }
+            json_response($result, $result['success'] ? 200 : 400);
+
+        // --- Delete Master Key ---
+        case 'delete_master_key':
+            $keyId = (int) ($body['key_id'] ?? 0);
+            if ($keyId <= 0) {
+                json_response(['success' => false, 'message' => 'key_id tidak valid.'], 400);
+            }
+            $mkLogic = new MasterKeyLogic();
+            $result = $mkLogic->delete($user, $keyId);
+            if ($result['success']) {
+                $logger->log($user['id'], 'delete_master_key');
+            }
+            json_response($result, $result['success'] ? 200 : 400);
 
         // --- Kick member from room ---
         case 'kick':

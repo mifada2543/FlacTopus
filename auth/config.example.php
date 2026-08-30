@@ -1,6 +1,6 @@
 <?php
 // ============================================================
-// auth/config.example.php — TEMPLATE konfigurasi aplikasi
+// auth/config.example.php â€” TEMPLATE konfigurasi aplikasi
 // ============================================================
 // Cara pakai:
 //   1. Salin file ini menjadi config.php
@@ -33,8 +33,8 @@ const SESSION_IDLE_TIMEOUT = 1800;  // Auto-logout bila idle (detik) = 30 menit
 // --- Gemini API (backend proxy) ---
 // API key hanya disimpan di server, TIDAK PERNAH dikirim ke frontend.
 // Dapatkan key gratis di: https://aistudio.google.com/apikey
-// Batasi key di Google Cloud Console → Application restrictions → HTTP referrers.
-const GEMINI_API_KEY = '';
+// Batasi key di Google Cloud Console â†’ Application restrictions â†’ HTTP referrers.
+const GEMINI_API_KEY = 'YOUR_API_KEY_HERE';
 
 /**
  * Membuat koneksi PDO ke MySQL (singleton).
@@ -59,12 +59,12 @@ function db(): PDO
  */
 function start_session(): void
 {
-    // Opsi cookie sesi — dipakai saat start awal maupun restart setelah idle.
+    // Opsi cookie sesi â€” dipakai saat start awal maupun restart setelah idle.
     // cookie_lifetime = masa berlaku ABSOLUT (2 jam dihitung sejak sesi dibuat,
     // mis. saat login); idle timeout (30 menit) bersifat geser/sliding. Jadi
     // pengguna yang aktif pun tetap logout saat genap 2 jam.
     //
-    // Secure flag: dynamic — hanya aktif jika HTTPS terdeteksi.
+    // Secure flag: dynamic â€” hanya aktif jika HTTPS terdeteksi.
     // (MEeL pattern: cek HTTPS + X-Forwarded-Proto)
     $isSecure = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
              || (!empty($_SERVER['HTTP_X_FORWARDED_PROTO']) && strtolower($_SERVER['HTTP_X_FORWARDED_PROTO']) === 'https');
@@ -232,8 +232,9 @@ if (PHP_SAPI !== 'cli' && !headers_sent()) {
             $gc = new GarbageCollector();
             $gc->run();
         } catch (Throwable $e) {
-            // GC gagal — jangan ganggu request user
+            // GC gagal â€” jangan ganggu request user
             error_log('[GC] Auto-run error: ' . $e->getMessage());
         }
     }
 }
+

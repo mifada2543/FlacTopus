@@ -49,7 +49,10 @@ export default function ProtectedRoute({ roles, children }) {
   }
 
   if (roles && !isAllowed(role, roles)) {
-    // Sudah login tapi role tidak berhak → arahkan ke dashboard kelas
+    // Sudah login tapi role tidak berhak → arahkan ke halaman yang sesuai role
+    if (role === ROLE.ADMIN) {
+      return <Navigate to="/admin" replace />;
+    }
     return <Navigate to="/classes" replace />;
   }
 

@@ -20,7 +20,7 @@ export default function RoomDetail() {
   const [now, setNow] = useState(Date.now());
   const [lastFetch, setLastFetch] = useState(Date.now());
 
-  // "Ada orang disini?" → browser menjawab "Ya, ada" setiap 3 menit
+  // "Ada orang disini?" â†’ browser menjawab "Ya, ada" setiap 3 menit
   useRoomHeartbeat(roomId);
 
   const [showResetModal, setShowResetModal] = useState(false);
@@ -310,9 +310,9 @@ export default function RoomDetail() {
                     {member.role === 'admin' && <span style={{ background: '#3b82f6', color: 'white', fontSize: '0.7rem', padding: '0.1rem 0.4rem', borderRadius: '4px', marginLeft: '0.5rem' }}>Ketua Kelas</span>}
                     {member.pinned_at && <span style={{ background: '#f59e0b', color: 'white', fontSize: '0.7rem', padding: '0.1rem 0.4rem', borderRadius: '4px', marginLeft: '0.5rem', display: 'inline-flex', alignItems: 'center', gap: '0.2rem' }}><Pin size={10} /> Ditandai Atas</span>}
                     {member.is_marked && <span style={{ background: '#ec4899', color: 'white', fontSize: '0.7rem', padding: '0.1rem 0.4rem', borderRadius: '4px', marginLeft: '0.5rem', display: 'inline-flex', alignItems: 'center', gap: '0.2rem' }}><Star size={10} /> Spesial</span>}
-                    {member.online && <span style={{ color: 'var(--accent-green)', fontSize: '0.75rem', fontWeight: 'normal', marginLeft: '0.5rem' }}>· Online</span>}
+                    {member.online && <span style={{ color: 'var(--accent-green)', fontSize: '0.75rem', fontWeight: 'normal', marginLeft: '0.5rem' }}>• Online</span>}
                   </div>
-                  <div style={{ color: 'var(--text-muted)', fontSize: '0.8rem' }}>{member.email} · Bergabung {member.joined_at}</div>
+                  <div style={{ color: 'var(--text-muted)', fontSize: '0.8rem' }}>{member.email} • Bergabung {member.joined_at}</div>
                 </div>
               </div>
               
@@ -411,29 +411,30 @@ export default function RoomDetail() {
                           📚 {nodeLabel}
                         </h4>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem' }}>
-                          {chats.map((chat, i) => {
-                            const isUser = chat.role === 'user';
-                            return (
-                              <div key={i} style={{ display: 'flex', gap: '0.6rem', flexDirection: isUser ? 'row-reverse' : 'row' }}>
-                                <div style={{ width: 28, height: 28, borderRadius: '50%', background: isUser ? 'rgba(255,255,255,0.1)' : 'rgba(16,185,129,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                                  {isUser ? <User size={14} color="white" /> : <Bot size={14} color="var(--accent-green)" />}
-                                </div>
-                                <div style={{
-                                  background: isUser ? '#3b82f6' : 'var(--bg-card)',
-                                  color: isUser ? 'white' : 'var(--text-main)',
-                                  padding: '0.6rem 0.9rem',
-                                  borderRadius: '12px',
-                                  fontSize: '0.85rem',
-                                  lineHeight: 1.5,
-                                  maxWidth: '80%',
-                                  border: isUser ? 'none' : '1px solid var(--border-color)',
-                                  wordBreak: 'break-word',
-                                }}>
-                                  {chat.content}
-                                </div>
+                          {chats.filter(c => c.role === 'user').map((chat, i) => (
+                            <div key={i} style={{ display: 'flex', gap: '0.8rem', alignItems: 'flex-start' }}>
+                              <div style={{ width: 32, height: 32, borderRadius: '50%', background: '#3b82f6', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, boxShadow: '0 2px 8px rgba(59, 130, 246, 0.4)' }}>
+                                <User size={16} color="white" />
                               </div>
-                            );
-                          })}
+                              <div style={{
+                                background: 'rgba(59, 130, 246, 0.1)',
+                                color: 'var(--text-main)',
+                                padding: '0.8rem 1rem',
+                                borderRadius: '0 16px 16px 16px',
+                                fontSize: '0.9rem',
+                                lineHeight: 1.5,
+                                border: '1px solid rgba(59, 130, 246, 0.2)',
+                                wordBreak: 'break-word',
+                                position: 'relative'
+                              }}>
+                                <div style={{ position: 'absolute', top: 0, left: '-6px', width: 0, height: 0, borderTop: '8px solid rgba(59, 130, 246, 0.2)', borderLeft: '8px solid transparent' }} />
+                                {chat.content}
+                              </div>
+                            </div>
+                          ))}
+                          {chats.filter(c => c.role === 'user').length === 0 && (
+                            <div style={{ color: 'var(--text-muted)', fontSize: '0.85rem', fontStyle: 'italic' }}>Tidak ada pertanyaan spesifik.</div>
+                          )}
                         </div>
                       </div>
                     ));
@@ -497,3 +498,4 @@ export default function RoomDetail() {
     </div>
   );
 }
+

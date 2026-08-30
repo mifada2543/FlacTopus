@@ -128,6 +128,7 @@ const btnSmall = (bg) => ({
 // ---- Tab Definitions ----
 const TABS = [
   { id: 'users', label: 'Kelola User', icon: <Users size={16} /> },
+  { id: 'master_keys', label: 'Master Key', icon: <Key size={16} /> },
   { id: 'rooms', label: 'Ruangan Terhapus', icon: <Trash2 size={16} /> },
   { id: 'activity', label: 'Activity Log', icon: <Activity size={16} /> },
 ];
@@ -240,6 +241,7 @@ export default function AdminPanel() {
       {/* ---- Tab Content ---- */}
       <div style={{ padding: 'clamp(1rem, 3vw, 2rem)' }}>
         {activeTab === 'users' && <UserManagementTab csrfToken={csrfToken} showMsg={showMsg} />}
+        {activeTab === 'master_keys' && <MasterKeyTab csrfToken={csrfToken} showMsg={showMsg} />}
         {activeTab === 'rooms' && <RoomsManagementTab csrfToken={csrfToken} showMsg={showMsg} />}
         {activeTab === 'activity' && <ActivityLogTab csrfToken={csrfToken} showMsg={showMsg} />}
       </div>
@@ -258,6 +260,7 @@ export default function AdminPanel() {
 function UserManagementTab({ csrfToken, showMsg }) {
   const [users, setUsers] = useState([]);
   const [stats, setStats] = useState(null);
+  const [settings, setSettings] = useState({});
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterRole, setFilterRole] = useState('');
@@ -271,12 +274,14 @@ function UserManagementTab({ csrfToken, showMsg }) {
 
   const loadData = useCallback(async () => {
     try {
-      const [usersData, statsData] = await Promise.all([
+      const [usersData, statsData, settingsData] = await Promise.all([
         adminGet({ search: searchTerm, role: filterRole, status: filterStatus }),
         adminGet({ action: 'stats' }),
+        adminGet({ action: 'settings' }),
       ]);
       setUsers(usersData.users || []);
       setStats(statsData.stats || null);
+      setSettings(settingsData.settings || {});
     } catch (err) {
       showMsg('error', err.message);
     } finally {
@@ -331,6 +336,17 @@ function UserManagementTab({ csrfToken, showMsg }) {
     } catch (err) { showMsg('error', err.message); } finally { setActionLoading(false); }
   };
 
+  const handleToggleAutoApprove = async () => {
+    const currentValue = settings.student_auto_approve?.value || '0';
+    const newValue = currentValue === '1' ? '0' : '1';
+    setActionLoading(true);
+    try {
+      await adminPost(csrfToken, { action: 'update_setting', key: 'student_auto_approve', value: newValue });
+      showMsg('success', `Auto-approve murid ${newValue === '1' ? 'DINYALAKAN' : 'DIMATIKAN'}.`);
+      await loadData();
+    } catch (err) { showMsg('error', err.message); } finally { setActionLoading(false); }
+  };
+
   if (isLoading) {
     return (
       <div style={{ textAlign: 'center', padding: '4rem', color: 'var(--text-muted)' }}>
@@ -360,6 +376,41 @@ function UserManagementTab({ csrfToken, showMsg }) {
           ))}
         </div>
       )}
+
+      {/* Auto-Approve Toggle */}
+      <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border-color)', borderRadius: '12px', padding: '1rem 1.5rem', marginBottom: '1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem' }}>
+          <div style={{ width: '40px', height: '40px', borderRadius: '10px', background: settings.student_auto_approve?.value === '1' ? 'rgba(16, 185, 129, 0.15)' : 'rgba(107, 114, 128, 0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <UserCheck size={20} color={settings.student_auto_approve?.value === '1' ? 'var(--accent-green)' : '#9ca3af'} />
+          </div>
+          <div>
+            <p style={{ margin: 0, fontWeight: 700, fontSize: '0.95rem', color: 'var(--text-main)' }}>Auto-Approve Murid</p>
+            <p style={{ margin: '0.2rem 0 0', fontSize: '0.82rem', color: 'var(--text-muted)' }}>
+              {settings.student_auto_approve?.value === '1'
+                ? '✅ Murid langsung aktif tanpa approval' 
+                : '🔒 Murid harus menunggu approval admin'}
+            </p>
+          </div>
+        </div>
+        <button
+          onClick={handleToggleAutoApprove}
+          disabled={actionLoading}
+          style={{
+            position: 'relative', width: '52px', height: '28px', borderRadius: '14px',
+            border: 'none', cursor: actionLoading ? 'not-allowed' : 'pointer',
+            background: settings.student_auto_approve?.value === '1' ? 'var(--accent-green)' : '#4b5563',
+            transition: 'all 0.3s', opacity: actionLoading ? 0.7 : 1,
+          }}
+        >
+          <div style={{
+            position: 'absolute', top: '3px',
+            left: settings.student_auto_approve?.value === '1' ? '27px' : '3px',
+            width: '22px', height: '22px', borderRadius: '50%',
+            background: 'white', transition: 'all 0.3s',
+            boxShadow: '0 2px 4px rgba(0,0,0,0.2)',
+          }} />
+        </button>
+      </div>
 
       {/* Filters */}
       <div className="filter-bar" style={{ display: 'flex', gap: '0.6rem', marginBottom: '1.2rem', flexWrap: 'wrap', alignItems: 'stretch' }}>
@@ -526,7 +577,265 @@ function UserManagementTab({ csrfToken, showMsg }) {
 }
 
 // ================================================================
-// TAB 2: RUANGAN TERHAPUS (Trash)
+// TAB 2: MASTER KEYS
+// Admin generate & kelola master key untuk registrasi guru
+// ================================================================
+function MasterKeyTab({ csrfToken, showMsg }) {
+  const [keys, setKeys] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [showGenerateModal, setShowGenerateModal] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(null);
+  const [description, setDescription] = useState('');
+  const [expiresAt, setExpiresAt] = useState('');
+  const [newKeyValue, setNewKeyValue] = useState(null);
+  const [actionLoading, setActionLoading] = useState(false);
+
+  const loadKeys = useCallback(async () => {
+    try {
+      const data = await adminGet({ action: 'master_keys' });
+      setKeys(data.keys || []);
+    } catch (err) {
+      showMsg('error', err.message);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [showMsg]);
+
+  useEffect(() => {
+    if (!csrfToken) return;
+    loadKeys();
+  }, [csrfToken, loadKeys]);
+
+  const handleGenerate = async () => {
+    setActionLoading(true);
+    try {
+      const payload = { action: 'generate_master_key', description };
+      if (expiresAt) payload.expires_at = expiresAt;
+      const data = await adminPost(csrfToken, payload);
+      setNewKeyValue(data.key);
+      showMsg('success', 'Master Key berhasil digenerate!');
+      await loadKeys();
+    } catch (err) {
+      showMsg('error', err.message);
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!showDeleteModal) return;
+    setActionLoading(true);
+    try {
+      await adminPost(csrfToken, { action: 'delete_master_key', key_id: showDeleteModal.id });
+      showMsg('success', 'Master Key berhasil dihapus.');
+      setShowDeleteModal(null);
+      await loadKeys();
+    } catch (err) {
+      showMsg('error', err.message);
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const copyToClipboard = (text) => {
+    navigator.clipboard.writeText(text).then(() => {
+      showMsg('success', 'Master Key berhasil disalin ke clipboard!');
+    }).catch(() => {
+      showMsg('error', 'Gagal menyalin. Silakan salin manual.');
+    });
+  };
+
+  const getKeyStatus = (key) => {
+    if (key.used_count >= key.max_uses) {
+      return { bg: 'rgba(107, 114, 128, 0.15)', color: '#9ca3af', border: 'rgba(107, 114, 128, 0.4)', label: 'Sudah Dipakai', icon: <CheckCircle size={13} /> };
+    }
+    if (key.expires_at && new Date(key.expires_at) < new Date()) {
+      return { bg: 'rgba(239, 68, 68, 0.15)', color: '#f87171', border: 'rgba(239, 68, 68, 0.4)', label: 'Kedaluwarsa', icon: <XCircle size={13} /> };
+    }
+    return { bg: 'rgba(16, 185, 129, 0.15)', color: '#34d399', border: 'rgba(16, 185, 129, 0.4)', label: 'Aktif', icon: <Key size={13} /> };
+  };
+
+  if (isLoading) {
+    return (
+      <div style={{ textAlign: 'center', padding: '4rem', color: 'var(--text-muted)' }}>
+        <Loader2 size={20} style={{ animation: 'spin 1s linear infinite' }} /> Memuat master keys...
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      {/* Header */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '1rem' }}>
+        <div>
+          <h2 style={{ margin: 0, fontSize: '1.2rem', color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <Key size={20} color="var(--accent-green)" /> Master Keys
+          </h2>
+          <p style={{ margin: '0.3rem 0 0', fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+            Generate token untuk registrasi guru (single-use)
+          </p>
+        </div>
+        <button
+          onClick={() => { setShowGenerateModal(true); setNewKeyValue(null); setDescription(''); setExpiresAt(''); }}
+          style={{
+            padding: '0.6rem 1.2rem', background: 'var(--accent-green)', color: '#000',
+            border: 'none', borderRadius: '8px', fontWeight: 700, cursor: 'pointer',
+            display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.9rem',
+          }}
+        >
+          <Key size={16} /> Generate Key Baru
+        </button>
+      </div>
+
+      {/* Table */}
+      <div className="responsive-table-wrap" style={{ background: 'var(--bg-card)', borderRadius: '12px', border: '1px solid var(--border-color)', overflow: 'hidden' }}>
+        {keys.length === 0 ? (
+          <div style={{ textAlign: 'center', padding: '3rem' }}>
+            <Key size={40} color="var(--text-muted)" style={{ opacity: 0.4, marginBottom: '0.8rem' }} />
+            <h3 style={{ color: 'var(--text-muted)', fontSize: '1rem' }}>Belum ada Master Key.</h3>
+            <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginTop: '0.3rem' }}>
+              Generate key baru untuk memulai registrasi guru.
+            </p>
+          </div>
+        ) : (
+          <div style={{ overflowX: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem' }}>
+              <thead>
+                <tr style={{ borderBottom: '2px solid var(--border-color)' }}>
+                  <th style={thStyle}>Key</th>
+                  <th style={thStyle}>Deskripsi</th>
+                  <th style={thStyle}>Status</th>
+                  <th style={thStyle}>Dipakai Oleh</th>
+                  <th style={thStyle}>Dibuat</th>
+                  <th style={{ ...thStyle, textAlign: 'center' }}>Aksi</th>
+                </tr>
+              </thead>
+              <tbody>
+                {keys.map((k) => {
+                  const status = getKeyStatus(k);
+                  return (
+                    <tr key={k.id} style={{ borderBottom: '1px solid var(--border-color)' }}
+                      onMouseOver={(e) => e.currentTarget.style.background = 'rgba(16, 185, 129, 0.03)'}
+                      onMouseOut={(e) => e.currentTarget.style.background = 'transparent'}>
+                      <td style={{ ...tdStyle, fontFamily: 'monospace', fontSize: '0.78rem' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                          <span>{k.key_value.substring(0, 8)}...</span>
+                          <button onClick={() => copyToClipboard(k.key_value)} style={{ background: 'transparent', border: 'none', cursor: 'pointer', padding: '2px' }} title="Salin key">
+                            <KeyRound size={12} color="var(--accent-green)" />
+                          </button>
+                        </div>
+                      </td>
+                      <td style={{ ...tdStyle, color: 'var(--text-muted)' }}>{k.description || '-'}</td>
+                      <td>
+                        <span style={{
+                          display: 'inline-flex', alignItems: 'center', gap: '0.3rem',
+                          padding: '0.2rem 0.6rem', borderRadius: '20px', fontSize: '0.75rem',
+                          fontWeight: 700, background: status.bg, color: status.color,
+                          border: `1px solid ${status.border}`,
+                        }}>
+                          {status.icon} {status.label}
+                        </span>
+                      </td>
+                      <td style={{ ...tdStyle, color: 'var(--text-muted)' }}>
+                        {k.used_by_name ? (
+                          <span style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+                            <GraduationCap size={12} color="#60a5fa" /> {k.used_by_name}
+                          </span>
+                        ) : '-'}
+                      </td>
+                      <td style={{ ...tdStyle, color: 'var(--text-muted)', fontSize: '0.8rem' }}>
+                        {fmtDate(k.created_at)}
+                      </td>
+                      <td style={{ ...tdStyle, textAlign: 'center' }}>
+                        {k.used_count === 0 && (
+                          <button onClick={() => setShowDeleteModal(k)} style={btnSmall('rgba(239, 68, 68, 0.15)')} title="Hapus">
+                            <Trash2 size={12} color="#f87171" /> Hapus
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      {/* Modal: Generate Key */}
+      {showGenerateModal && (
+        <ModalBackdrop onClose={() => setShowGenerateModal(null)}>
+          <ModalCard title={newKeyValue ? 'Key Berhasil Digenerate!' : 'Generate Master Key'} titleColor="var(--accent-green)" onClose={() => setShowGenerateModal(null)}>
+            {newKeyValue ? (
+              <>
+                <div style={{ background: 'rgba(16, 185, 129, 0.08)', border: '1px solid rgba(16, 185, 129, 0.3)', borderRadius: '8px', padding: '1rem', marginBottom: '1rem' }}>
+                  <p style={{ color: 'var(--accent-green)', fontWeight: 700, margin: '0 0 0.5rem', fontSize: '0.85rem' }}>Master Key:</p>
+                  <p style={{ fontFamily: 'monospace', fontSize: '1rem', wordBreak: 'break-all', margin: 0, color: 'white', background: '#0f172a', padding: '0.7rem', borderRadius: '6px' }}>
+                    {newKeyValue}
+                  </p>
+                </div>
+                <p style={{ color: '#fbbf24', fontSize: '0.82rem', marginBottom: '1rem' }}>
+                  ⚠️ Simpan key ini! Hanya bisa dilihat sekali ini saja.
+                </p>
+                <div style={{ display: 'flex', gap: '0.8rem' }}>
+                  <button onClick={() => copyToClipboard(newKeyValue)} style={{ ...modalBtnPrimary, background: '#3b82f6' }}>
+                    <KeyRound size={16} /> Salin Key
+                  </button>
+                  <button onClick={() => setShowGenerateModal(null)} style={modalBtnSecondary}>Tutup</button>
+                </div>
+              </>
+            ) : (
+              <>
+                <label style={{ display: 'block', marginBottom: '0.4rem', color: 'var(--text-main)', fontSize: '0.85rem', fontWeight: 600 }}>Deskripsi (opsional)</label>
+                <input type="text" value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Contoh: Guru TKJ 2024"
+                  style={{ ...inputStyle, marginBottom: '1rem' }} />
+                <label style={{ display: 'block', marginBottom: '0.4rem', color: 'var(--text-main)', fontSize: '0.85rem', fontWeight: 600 }}>Tanggal Kedaluwarsa (opsional)</label>
+                <input type="date" value={expiresAt} onChange={(e) => setExpiresAt(e.target.value)}
+                  style={{ ...inputStyle, marginBottom: '1rem' }} />
+                <p style={{ color: 'var(--text-muted)', fontSize: '0.82rem', marginBottom: '1rem' }}>
+                  Key bersifat <strong>single-use</strong> (hanya bisa dipakai 1 guru).
+                </p>
+                <div style={{ display: 'flex', gap: '0.8rem' }}>
+                  <button onClick={() => setShowGenerateModal(null)} style={modalBtnSecondary}>Batal</button>
+                  <button onClick={handleGenerate} disabled={actionLoading} style={modalBtnPrimary}>
+                    {actionLoading ? <Loader2 size={16} style={{ animation: 'spin 1s linear infinite' }} /> : <Key size={16} />} Generate
+                  </button>
+                </div>
+              </>
+            )}
+          </ModalCard>
+        </ModalBackdrop>
+      )}
+
+      {/* Modal: Delete Key */}
+      {showDeleteModal && (
+        <ModalBackdrop onClose={() => setShowDeleteModal(null)}>
+          <ModalCard title="Hapus Master Key" titleColor="#f87171" onClose={() => setShowDeleteModal(null)}>
+            <div style={{ background: 'rgba(239, 68, 68, 0.08)', border: '1px solid rgba(239, 68, 68, 0.3)', borderRadius: '8px', padding: '1rem', marginBottom: '1rem' }}>
+              <p style={{ fontWeight: 700, color: '#f87171', margin: 0, fontFamily: 'monospace' }}>
+                {showDeleteModal.key_value.substring(0, 16)}...
+              </p>
+              {showDeleteModal.description && (
+                <p style={{ color: 'var(--text-muted)', fontSize: '0.82rem', margin: '0.3rem 0 0' }}>
+                  {showDeleteModal.description}
+                </p>
+              )}
+            </div>
+            <div style={{ display: 'flex', gap: '0.8rem' }}>
+              <button onClick={() => setShowDeleteModal(null)} style={modalBtnSecondary}>Batal</button>
+              <button onClick={handleDelete} disabled={actionLoading} style={{ ...modalBtnPrimary, background: '#ef4444', color: 'white' }}>
+                {actionLoading ? <Loader2 size={16} style={{ animation: 'spin 1s linear infinite' }} /> : <Trash2 size={16} />} Hapus
+              </button>
+            </div>
+          </ModalCard>
+        </ModalBackdrop>
+      )}
+    </div>
+  );
+}
+
+// ================================================================
+// TAB 3: RUANGAN TERHAPUS (Trash)
 // Admin hanya melihat ruangan yang dihapus guru (soft-deleted)
 // ================================================================
 function RoomsManagementTab({ csrfToken, showMsg }) {

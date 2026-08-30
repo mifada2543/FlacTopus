@@ -79,7 +79,7 @@ export const QuizTypeModal = ({ onSelect, onClose, currentType }) => {
           {/* Gambar Asli (Screenshot) */}
           {!imgError && tpl.image && (
             <img 
-              src={tpl.image} 
+              src={`${import.meta.env.BASE_URL}${tpl.image.replace(/^\//, '')}`}
               alt={tpl.name} 
               onError={() => setImgError(true)} 
               style={{ 

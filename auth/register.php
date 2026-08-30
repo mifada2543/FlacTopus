@@ -15,6 +15,7 @@
 require_once __DIR__ . '/auth.php';
 require_once __DIR__ . '/../backend/controller/logic/RateLimiter.php';
 require_once __DIR__ . '/../backend/controller/logic/ActivityLogger.php';
+require_once __DIR__ . '/../backend/controller/logic/MasterKeyLogic.php';
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     json_response(['success' => false, 'message' => 'Method tidak diizinkan.'], 405);
@@ -41,22 +42,87 @@ if (!$rate['allowed']) {
     ], 429);
 }
 
-$body     = read_json_body();
+// --- Honeypot Check: jika field terisi → bot terdeteksi ---
+$body      = read_json_body();
+$honeypot  = (string) ($body['website'] ?? '');
+if ($honeypot !== '') {
+    // Bot terdeteksi — catat tapi jangan kasih tahu bot alasannya
+    $logger = new ActivityLogger();
+    $logger->log(null, 'register_honeypot_caught');
+    json_response(['success' => false, 'message' => 'Registrasi gagal. Silakan coba lagi.'], 400);
+}
+
 $name     = (string) ($body['name'] ?? '');
 $email    = (string) ($body['email'] ?? '');
 $password = (string) ($body['password'] ?? '');
-$role     = 'student'; // Selalu murid — guru hanya bisa dibuat oleh admin
+$role     = (string) ($body['role'] ?? 'student');
+$masterKey = (string) ($body['master_key'] ?? '');
+
+// --- Validasi Role ---
+if (!in_array($role, ['student', 'teacher'], true)) {
+    json_response(['success' => false, 'message' => 'Role tidak valid.'], 400);
+}
+
+// --- Cek Auto-Approve Setting ---
+$autoApprove = false;
+if ($role === 'student') {
+    $db = db();
+    // Cek apakah tabel app_settings ada (migration v8)
+    $tableCheck = $db->query("SHOW TABLES LIKE 'app_settings'");
+    if ($tableCheck && $tableCheck->fetch()) {
+        $stmt = $db->prepare('SELECT setting_value FROM app_settings WHERE setting_key = ?');
+        $stmt->execute(['student_auto_approve']);
+        $row = $stmt->fetch();
+        $autoApprove = ($row && $row['setting_value'] === '1');
+    }
+}
+
+// --- Validasi Master Key untuk Guru (opsional) ---
+$status = $autoApprove ? 'active' : 'pending'; // Default: pending (atau active jika auto_approve ON)
+
+if ($role === 'teacher') {
+    $mkLogic = new MasterKeyLogic();
+    
+    if ($masterKey !== '') {
+        // Ada master key → cek validitas
+        $validation = $mkLogic->validate($masterKey);
+        
+        if ($validation['valid']) {
+            // Master key valid → status langsung aktif
+            $status = 'active';
+        } else {
+            // Master key tidak valid → tolak
+            json_response(['success' => false, 'message' => $validation['message']], 400);
+        }
+    } else {
+        // Tanpa master key → status pending (perlu approval admin)
+        $status = 'pending';
+    }
+}
 
 try {
     $logic  = new LoginRegisterLogic();
-    $result = $logic->register($name, $email, $password, $role);
+    $result = $logic->register($name, $email, $password, $role, $status);
     $logger = new ActivityLogger();
 
     if ($result['success']) {
         // Register berhasil → reset counter rate limit
         $limiter->clear($ip, 'register');
+        
+        // Jika guru dengan master key → tandai key sudah dipakai
+        if ($role === 'teacher' && $masterKey !== '' && isset($result['user_id'])) {
+            $mkLogic->markUsed($masterKey, $result['user_id']);
+        }
+        
         $logger->log($result['user_id'] ?? null, 'register');
-        json_response(['success' => true, 'message' => $result['message']]);
+
+        // Return auto_login info untuk frontend
+        $response = ['success' => true, 'message' => $result['message']];
+        if (!empty($result['auto_login'])) {
+            $response['auto_login'] = true;
+            $response['user'] = $result['user'] ?? null;
+        }
+        json_response($response);
     }
 
     // Register gagal → catat percobaan

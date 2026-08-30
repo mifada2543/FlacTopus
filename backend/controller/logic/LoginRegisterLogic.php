@@ -25,18 +25,24 @@ class LoginRegisterLogic
     /**
      * Mendaftarkan akun baru (guru/murid).
      *
+     * @param string $status Status awal akun ('pending' atau 'active')
      * @return array{success: bool, message: string, user_id?: int}
      */
-    public function register(string $name, string $email, string $password, string $role): array
+    public function register(string $name, string $email, string $password, string $role, string $status = 'pending'): array
     {
         $name  = trim($name);
         $email = strtolower(trim($email));
         $role  = trim($role);
+        $status = trim($status);
 
-        // RBAC: hanya student yang bisa daftar sendiri.
-        // Guru/admin tidak bisa dibuat lewat register (harus di-approve admin).
-        if (!in_array($role, ['student'], true)) {
+        // RBAC: hanya student dan teacher yang bisa daftar
+        if (!in_array($role, ['student', 'teacher'], true)) {
             return ['success' => false, 'message' => 'Role tidak valid.'];
+        }
+
+        // Validasi status
+        if (!in_array($status, ['pending', 'active'], true)) {
+            $status = 'pending'; // Default ke pending jika tidak valid
         }
 
         // --- Validasi input ---
@@ -66,12 +72,36 @@ class LoginRegisterLogic
         $stmt = $this->db->prepare(
             'INSERT INTO users (name, email, password_hash, role, status) VALUES (?, ?, ?, ?, ?)'
         );
-        $stmt->execute([$name, $email, $hash, $role, 'pending']);
+        $stmt->execute([$name, $email, $hash, $role, $status]);
+
+        $userId = (int) $this->db->lastInsertId();
+
+        // Jika status active → auto-login (buat session)
+        if ($status === 'active') {
+            start_session();
+            session_regenerate_id(true);
+            $_SESSION['user'] = [
+                'id'    => $userId,
+                'name'  => $name,
+                'email' => $email,
+                'role'  => $role,
+            ];
+            $_SESSION['last_activity'] = time();
+
+            return [
+                'success'     => true,
+                'message'     => 'Registrasi berhasil! Selamat datang, ' . $name . '.',
+                'user_id'     => $userId,
+                'auto_login'  => true,
+                'user'        => $_SESSION['user'],
+            ];
+        }
 
         return [
-            'success' => true,
-            'message' => 'Registrasi berhasil! Akun Anda menunggu persetujuan admin. Anda akan bisa login setelah disetujui.',
-            'user_id' => (int) $this->db->lastInsertId(),
+            'success'     => true,
+            'message'     => 'Registrasi berhasil! Akun Anda menunggu persetujuan admin. Anda akan bisa login setelah disetujui.',
+            'user_id'     => $userId,
+            'auto_login'  => false,
         ];
     }
 
