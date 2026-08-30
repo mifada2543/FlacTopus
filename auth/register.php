@@ -65,16 +65,15 @@ if (!in_array($role, ['student', 'teacher'], true)) {
 
 // --- Cek Auto-Approve Setting ---
 $autoApprove = false;
-if ($role === 'student') {
-    $db = db();
-    // Cek apakah tabel app_settings ada (migration v8)
-    $tableCheck = $db->query("SHOW TABLES LIKE 'app_settings'");
-    if ($tableCheck && $tableCheck->fetch()) {
-        $stmt = $db->prepare('SELECT setting_value FROM app_settings WHERE setting_key = ?');
-        $stmt->execute(['student_auto_approve']);
-        $row = $stmt->fetch();
-        $autoApprove = ($row && $row['setting_value'] === '1');
-    }
+$db = db();
+// Cek apakah tabel app_settings ada (migration v8)
+$tableCheck = $db->query("SHOW TABLES LIKE 'app_settings'");
+if ($tableCheck && $tableCheck->fetch()) {
+    $settingKey = ($role === 'teacher') ? 'teacher_auto_approve' : 'student_auto_approve';
+    $stmt = $db->prepare('SELECT setting_value FROM app_settings WHERE setting_key = ?');
+    $stmt->execute([$settingKey]);
+    $row = $stmt->fetch();
+    $autoApprove = ($row && $row['setting_value'] === '1');
 }
 
 // --- Validasi Master Key untuk Guru (opsional) ---

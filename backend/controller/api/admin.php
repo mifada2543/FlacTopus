@@ -269,7 +269,7 @@ if ($method === 'POST') {
         case 'update_setting':
             $key = (string) ($body['key'] ?? '');
             $value = (string) ($body['value'] ?? '');
-            $allowedKeys = ['student_auto_approve', 'maintenance_mode'];
+            $allowedKeys = ['student_auto_approve', 'teacher_auto_approve', 'maintenance_mode'];
             if (!in_array($key, $allowedKeys, true)) {
                 json_response(['success' => false, 'message' => 'Setting tidak valid.'], 400);
             }
