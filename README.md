@@ -79,8 +79,25 @@ Kuis memiliki mode **Boss Fight** bergaya RPG lengkap dengan:
 - **Heartbeat system** — browser mengirim sinyal tiap 3 menit
 - **Ketua Kelas** — guru bisa mengangkat murid sebagai sub-admin
 
-### 🛡️ Panel Admin (3 Tab)
-- **👥 Kelola User** — filter/search, approve/reject registrasi, ubah role, reset password
+### 🔑 Registrasi Guru dengan Master Key
+- Guru bisa daftar dengan **Master Key** (token single-use dari admin) → langsung aktif
+- Guru bisa daftar **tanpa Master Key** → status `pending` (perlu verifikasi admin)
+- Admin generate Master Key di Panel Admin → deskripsi + expiry date
+
+### 🟢 Auto-Approve Murid
+- Admin punya **toggle ON/OFF** di Panel Admin
+- Jika **ON**: Murid langsung aktif tanpa approval admin
+- Jika **OFF**: Murid harus menunggu approval admin
+- Cocok untuk situasi trafik normal (ON) atau butuh keamanan ekstra (OFF)
+
+### 🚀 Auto-Login After Register
+- Jika auto-approve **ON** → murid langsung redirect ke `/classes` (tidak perlu login lagi)
+- Jika guru pakai **Master Key** → langsung redirect ke `/classes`
+- Jika status **pending** → redirect ke halaman login dengan pesan
+
+### 🛡️ Panel Admin (4 Tab)
+- **👥 Kelola User** — filter/search, approve/reject registrasi, ubah role, reset password, **toggle Auto-Approve**
+- **🔑 Master Key** — generate, lihat, hapus master key untuk registrasi guru
 - **🗑️ Ruangan Terhapus** — lihat ruangan soft-deleted, **pulihkan** atau **hapus permanen** (retensi 30 hari)
 - **📊 Activity Log** — audit trail semua aksi + auto-refresh 15 detik
 
@@ -100,12 +117,12 @@ Kuis memiliki mode **Boss Fight** bergaya RPG lengkap dengan:
 | **Animasi** | Framer Motion + Canvas Confetti | Transisi UI & efek selebrasi |
 | **AI Tutor** | Google Gemini API | Socratic questioning approach |
 | **Backend** | PHP 8 Murni (tanpa framework) | API JSON, session-based auth |
-| **Database** | MySQL (MariaDB via XAMPP) | 8 tabel + file JSON silabus |
-| **Keamanan** | CSRF, Session Hijack Detection, Dual Rate Limiter, Activity Log, Soft Delete | Berdasarkan referensi MEeL |
+| **Database** | MySQL (MariaDB via XAMPP) | 10 tabel + file JSON silabus |
+| **Keamanan** | CSRF, Honeypot, Session Hijack Detection, Dual Rate Limiter, Activity Log, Soft Delete | Berdasarkan referensi MEeL |
 | **Build** | Vite build → bash build.sh → XAMPP | Production-ready |
 | **Linting** | OxLint | Cepat, ringan |
 | **CI/CD** | GitHub Actions | Secret scanning |
-| **Migrasi** | db/migration.php (CLI-only) | Version-based, idempotent (v1-v6) |
+| **Migrasi** | db/migration.php (CLI-only) | Version-based, idempotent (v1-v8) |
 
 ---
 
@@ -117,17 +134,17 @@ Kuis memiliki mode **Boss Fight** bergaya RPG lengkap dengan:
 │  React + Vite + React Router + ReactFlow                 │
 │  Pages: Landing, Login, Register, ClassDashboard,        │
 │         TeacherDashboard, StudentDashboard, Quiz,         │
-│         RoomDetail, AdminPanel (3 tabs), ErrorPage        │
+│         RoomDetail, AdminPanel (4 tabs), ErrorPage        │
 ├─────────────────────────────────────────────────────────┤
 │                   BACKEND (PHP Murni)                     │
 │  API JSON: auth/*.php, ruangan.php, admin.php, quiz.php  │
-│  Logic: LoginRegisterLogic, RuanganLogic,                 │
+│  Logic: LoginRegisterLogic, RuanganLogic, MasterKeyLogic, │
 │         RateLimiter, ActivityLogger, GarbageCollector     │
 ├─────────────────────────────────────────────────────────┤
 │                     DATABASE (MySQL)                      │
 │  Tables: users, ruangan, class_members, syllabus,         │
 │          quiz_attempts, login_attempts, activity_log,     │
-│          schema_version                                   │
+│          master_keys, app_settings, schema_version        │
 │  + File JSON per ruangan di storage/ruangan/<id>.json     │
 ├─────────────────────────────────────────────────────────┤
 │                    AI (Google Gemini)                      │
@@ -139,7 +156,7 @@ Kuis memiliki mode **Boss Fight** bergaya RPG lengkap dengan:
 **Alur Aplikasi:**
 1. **React (JSX)** menggambar semua halaman UI
 2. **PHP** berperan sebagai backend murni — mengembalikan JSON
-3. **MySQL** menyimpan data user, ruangan, & keanggotaan
+3. **MySQL** menyimpan data user, ruangan, keanggotaan, master keys, settings
 4. **File JSON** menyimpan struktur skill tree per ruangan (DB hanya pointer)
 5. **Google Gemini** menyediakan AI Socratic Tutor (diproxy lewat backend)
 
@@ -166,23 +183,24 @@ FlacTopus/
 │   ├── config.php                 # DB, session config, security headers
 │   ├── auth.php                   # require_auth, session hijacking, CSRF
 │   ├── login.php                  # POST API login + dual rate limiter
-│   ├── register.php               # POST API register (status=pending)
+│   ├── register.php               # POST API register (honeypt + master key + auto-approve)
 │   ├── session.php                # GET session check + CSRF token
 │   └── logout.php                 # POST logout + activity logging
 ├── backend/controller/
 │   ├── api/
 │   │   ├── ruangan.php            # CRUD ruangan + trash management
-│   │   ├── admin.php              # Admin: user mgmt, restore/force_delete
+│   │   ├── admin.php              # Admin: user mgmt, master keys, settings
 │   │   ├── quiz.php               # API kuis + analytics + anti-cheat
 │   │   └── gemini.php             # Backend proxy Gemini API
 │   └── logic/
-│       ├── LoginRegisterLogic.php  # Auth business logic
+│       ├── LoginRegisterLogic.php  # Auth + auto-login setelah register
 │       ├── RuanganLogic.php        # Ruangan + soft delete + trash
+│       ├── MasterKeyLogic.php      # Generate/validate/manage master keys
 │       ├── RateLimiter.php         # Dual rate limiting (IP + session)
 │       ├── ActivityLogger.php      # Audit trail
 │       └── GarbageCollector.php    # Auto-clean: activity_log, orphaned files, trashed rooms
 ├── db/
-│   ├── migration.php              # CLI-only version-based migration (v1-v6)
+│   ├── migration.php              # CLI-only version-based migration (v1-v8)
 │   └── README.md                  # Arsitektur data documentation
 ├── storage/
 │   ├── ruangan/                   # File JSON silabus per ruangan
@@ -303,15 +321,20 @@ Keamanan dibangun berdasarkan referensi project **MEeL** dan diimplementasikan s
 - **IP-based:** Tabel `login_attempts` — track semua percobaan
 - **Loopback exemption:** Localhost bebas rate limit untuk development
 
-### 3. Activity Logger (Audit Trail)
-Semua aktivitas dicatat ke tabel `activity_log`: login, logout, register, approve, reject, change_role, delete_user, reset_password, rate_limited.
+### 3. Honeypot Field (Anti-Bot)
+- Input tersembunyi "Website" di form registrasi
+- Bot otomatis mengisi seluruh field → backend mendeteksi → request ditolak
+- Tidak ada UI yang terpengaruh untuk manusia (CSS hidden)
 
-### 4. Secure Cookie
+### 4. Activity Logger (Audit Trail)
+Semua aktivitas dicatat ke tabel `activity_log`: login, logout, register, approve, reject, change_role, delete_user, reset_password, rate_limited, register_honeypot_caught, generate_master_key, delete_master_key, update_setting.
+
+### 5. Secure Cookie
 - `httponly = true` → JavaScript tidak bisa baca
 - `samesite = 'Lax'` → cookie tidak dikirim saat cross-site
 - `secure = dynamic` → otomatis `true` jika HTTPS
 
-### 5. Security Headers
+### 6. Security Headers
 
 | Header | Fungsi |
 | --- | --- |
@@ -320,17 +343,18 @@ Semua aktivitas dicatat ke tabel `activity_log`: login, logout, register, approv
 | `Referrer-Policy: strict-origin-when-cross-origin` | Kontrol referrer |
 | `Permissions-Policy` | Blokir kamera, mikrofon, lokasi |
 | `Cross-Origin-Opener-Policy: same-origin` | Isolasi origin |
+| `Strict-Transport-Security` | HSTS (HTTPS only) |
 
-### 6. Soft Delete & Recovery
+### 7. Soft Delete & Recovery
 - Guru **soft delete** ruangan → data tersimpan 30 hari
 - Admin bisa **pulihkan** atau **hapus permanen** dari tab "Ruangan Terhapus"
 - **GarbageCollector** otomatis hard delete setelah 30 hari
 
-### 7. Input Validation & Protection
+### 8. Input Validation & Protection
 - Password: Bcrypt (`password_hash()` + `password_verify()`)
 - CSRF: Token wajib untuk semua POST request (`X-CSRF-Token` header)
 - SQL Injection: Prepared statements (PDO, `EMULATE_PREPARES => false`)
-- Register: Role di-override server-side (selalu `student`)
+- Register: Role di-override server-side
 
 ---
 
@@ -341,7 +365,7 @@ Semua aktivitas dicatat ke tabel `activity_log`: login, logout, register, approv
 | `guest` | Belum login | Landing page, login, register |
 | `student` | Murid terdaftar (aktif) | Kelas yang diikuti, belajar, kuis |
 | `teacher` | Guru terdaftar (aktif) | Semua akses student + buat/hapus ruangan, edit silabus |
-| `admin` | Administrator | Kelola user, pulihkan ruangan terhapus, activity log |
+| `admin` | Administrator | **Auto redirect ke `/admin`**, kelola user, master keys, settings |
 
 ### RBAC Detail per Aksi
 
@@ -356,21 +380,36 @@ Semua aktivitas dicatat ke tabel `activity_log`: login, logout, register, approv
 | Kick murid | ❌ | ❌ | ✅ (sendiri) | ❌ | ❌ |
 | Analytics | ❌ | ❌ | ✅ (sendiri) | ✅ (sendiri) | ❌ |
 | **Kelola User** | ❌ | ❌ | ❌ | ❌ | ✅ |
+| **Master Keys** | ❌ | ❌ | ❌ | ❌ | ✅ |
+| **Auto-Approve Toggle** | ❌ | ❌ | ❌ | ❌ | ✅ |
 | **Lihat Ruangan Terhapus** | ❌ | ❌ | ❌ | ❌ | ✅ |
 | **Restore Ruangan** | ❌ | ❌ | ❌ | ❌ | ✅ |
 | **Force Delete Ruangan** | ❌ | ❌ | ❌ | ❌ | ✅ |
 | **Activity Log** | ❌ | ❌ | ❌ | ❌ | ✅ |
 
-### Flow Autentikasi
+### Flow Autentikasi & Registrasi
 
+**Registrasi Murid:**
+1. Pilih "Murid" → isi form → Submit
+2. Backend cek `student_auto_approve` setting
+3. Jika **ON** → status `active` → auto-login → redirect ke `/classes`
+4. Jika **OFF** → status `pending` → redirect ke login dengan pesan "Tunggu approve admin"
+
+**Registrasi Guru:**
+1. Pilih "Guru" → isi form → Submit
+2. **Tanpa Master Key** → status `pending` → perlu verifikasi admin
+3. **Dengan Master Key** → status `active` → auto-login → redirect ke `/classes`
+
+**Login:**
 1. User buka app → status `guest`
-2. Register → **selalu role `student`** → status `pending`
-3. Admin approve → status `active`
-4. Login → **admin redirect ke `/admin`**, guru/murid redirect ke `/classes`
-5. Session PHP dibuat (cookie `FlacTopus`, httponly, 2 jam lifetime)
-6. Session hijacking check → setiap request cek `session_id()` di DB
-7. Idle 30 menit → auto-logout
-8. Double session prevention → user sudah login → redirect
+2. Login → **admin redirect ke `/admin`**, guru/murid redirect ke `/classes`
+3. Session PHP dibuat (cookie `FlacTopus`, httponly, 2 jam lifetime)
+4. Session hijacking check → setiap request cek `session_id()` di DB
+5. Idle 30 menit → auto-logout
+6. Double session prevention → user sudah login → redirect
+
+**Admin Access:**
+- Admin yang akses `/classes` → otomatis redirect ke `/admin`
 
 ---
 
@@ -413,6 +452,34 @@ Semua aktivitas dicatat ke tabel `activity_log`: login, logout, register, approv
 | `is_marked` | TINYINT(1) | Tanda khusus murid |
 | `pinned_at` | TIMESTAMP NULL | Waktu dipin |
 
+### Tabel `master_keys` (v7)
+| Kolom | Tipe | Keterangan |
+| --- | --- | --- |
+| `id` | INT UNSIGNED PK | Auto increment |
+| `key_value` | VARCHAR(64) UNIQUE | Token unik (single-use) |
+| `description` | VARCHAR(255) NULL | Keterangan (mis: Guru TKJ 2024) |
+| `max_uses` | INT UNSIGNED | Max penggunaan (selalu 1) |
+| `used_count` | INT UNSIGNED | Sudah dipakai berapa kali |
+| `used_by` | INT UNSIGNED NULL | User ID yang pakai |
+| `used_at` | TIMESTAMP NULL | Kapan dipakai |
+| `expires_at` | TIMESTAMP NULL | Kapan expired (NULL = tidak expired) |
+| `created_by` | INT UNSIGNED FK | Admin yang generate |
+| `created_at` | TIMESTAMP | Auto |
+
+### Tabel `app_settings` (v8)
+| Kolom | Tipe | Keterangan |
+| --- | --- | --- |
+| `setting_key` | VARCHAR(50) PK | Nama setting |
+| `setting_value` | VARCHAR(255) | Nilai setting |
+| `description` | VARCHAR(255) | Keterangan |
+| `updated_at` | TIMESTAMP | Auto update |
+
+**Default Settings:**
+| Key | Default | Deskripsi |
+| --- | --- | --- |
+| `student_auto_approve` | `0` | Jika `1`, murid langsung aktif tanpa approve admin |
+| `maintenance_mode` | `0` | Jika `1`, site dalam mode maintenance |
+
 ### Tabel `quiz_attempts`
 | Kolom | Tipe | Keterangan |
 | --- | --- | --- |
@@ -428,8 +495,13 @@ Semua aktivitas dicatat ke tabel `activity_log`: login, logout, register, approv
 | `tab_switches` | INT | Deteksi pindah tab (anti-cheat) |
 | `created_at` | TIMESTAMP | Auto |
 
-### Tabel `syllabus` | `login_attempts` | `activity_log` | `schema_version`
-Tabel pendukung untuk pointer file JSON, rate limiting, audit trail, dan migrasi.
+### Tabel Pendukung
+| Tabel | Keterangan |
+| --- | --- |
+| `syllabus` | Pointer ke file JSON silabus per ruangan |
+| `login_attempts` | Rate limiting (IP + context) |
+| `activity_log` | Audit trail semua aktivitas |
+| `schema_version` | Pelacakan versi migrasi |
 
 > **Catatan desain:** Isi skill tree (nodes/edges) disimpan sebagai **file JSON per ruangan** di `storage/ruangan/`, bukan di kolom DB. DB hanya menyimpan pointer kecil.
 
@@ -442,7 +514,7 @@ Tabel pendukung untuk pointer file JSON, rate limiting, audit trail, dan migrasi
 | --- | --- | --- |
 | `auth/session.php` | GET | Cek status login + ambil CSRF token |
 | `auth/login.php` | POST | Login + dual rate limiter |
-| `auth/register.php` | POST | Register → status=pending |
+| `auth/register.php` | POST | Register (honeypot + master key + auto-approve) |
 | `auth/logout.php` | POST | Logout + activity logging |
 
 ### Ruangan (`backend/controller/api/ruangan.php`)
@@ -469,11 +541,16 @@ Tabel pendukung untuk pointer file JSON, rate limiting, audit trail, dan migrasi
 | --- | --- | --- | --- |
 | `list` | GET | admin | Daftar semua user + filter |
 | `stats` | GET | admin | Statistik user per role & status |
+| `settings` | GET | admin | Ambil app settings (auto-approve, dll) |
+| `master_keys` | GET | admin | Daftar semua master keys |
 | `approve` | POST | admin | Setujui user pending |
 | `reject` | POST | admin | Tolak user pending |
 | `change_role` | POST | admin | Ubah role user |
 | `delete` | POST | admin | Hapus user permanen |
 | `reset_password` | POST | admin | Reset password user |
+| `update_setting` | POST | admin | Update app settings (auto-approve toggle) |
+| `generate_master_key` | POST | admin | Generate master key baru |
+| `delete_master_key` | POST | admin | Hapus master key |
 | `kick` | POST | admin | Keluarkan anggota dari ruangan |
 | `restore` | POST | admin | Pulihkan ruangan dari trash |
 | `force_delete` | POST | admin | Hapus permanen dari trash |
@@ -521,7 +598,9 @@ php db/migration.php
 # 📋 v4: theme_color, role, is_marked, pinned_at
 # 📋 v5: quiz_attempts (rekam jawaban murid)
 # 📋 v6: deleted_at, deleted_by (soft delete)
-# ✅ Database sudah versi terbaru (v6).
+# 📋 v7: master_keys (registrasi guru via token)
+# 📋 v8: app_settings (auto-approve toggle, maintenance mode)
+# ✅ Database sudah versi terbaru (v8).
 ```
 
 | Fitur | Keterangan |
@@ -553,7 +632,9 @@ php db/migration.php
 - **AI Key:** `GEMINI_API_KEY` di `auth/config.php` (server-side, tidak ter-expose ke frontend)
 - **Password:** Semua di-hash bcrypt; demo password = `password123`
 - **Timezone:** MySQL timezone = WIB (+07:00)
-- **Register:** Selalu role `student` — guru/admin ditambahkan via Panel Admin
+- **Register Murid:** Auto-approve ON → langsung aktif; OFF → pending approval admin
+- **Register Guru:** Tanpa Master Key → pending; Dengan Master Key → langsung aktif
+- **Admin Access:** Admin yang akses `/classes` → otomatis redirect ke `/admin`
 - **Soft Delete:** Ruangan yang dihapus guru tersimpan 30 hari sebelum dihapus permanen oleh GarbageCollector
 
 ---

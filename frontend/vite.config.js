@@ -13,8 +13,8 @@ export default defineConfig({
     // Dev mode: panggilan API autentikasi (auth/*.php) diteruskan ke Apache,
     // karena PHP hanya jalan lewat Apache/MySQL (bukan server Vite).
     proxy: {
-      '/FlacTopus/auth': 'http://localhost',
-      '/FlacTopus/backend': 'http://localhost',
+      '/auth': 'http://localhost',
+      '/backend': 'http://localhost',
     },
   },
   plugins: [react()],

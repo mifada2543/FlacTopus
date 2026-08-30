@@ -6,6 +6,7 @@
 //   php db/migration.php
 //
 // Fitur:
+//   - PENGGANTI FILE schema.sql JADUL. Semua pembuatan tabel & struktur ada di sini.
 //   - Hanya bisa dijalankan dari PHP CLI (bukan browser)
 //   - Version-based: lacak versi schema di tabel schema_version
 //   - Idempotent: bisa dijalankan berulang kali tanpa error
@@ -266,6 +267,58 @@ try {
                 }
             }
             $pdo->exec("INSERT IGNORE INTO schema_version (version, description) VALUES (6, 'Tambah kolom deleted_at, deleted_by ke ruangan')");
+            echo "✅\n";
+            $applied++;
+        } catch (PDOException $e) { echo "❌ {$e->getMessage()}\n"; exit(1); }
+    }
+
+    // ── v7: Tabel master_keys (untuk registrasi guru via token) ──
+    if ($currentVersion < 7) {
+        echo "🔄 v7: Tambah tabel master_keys (registrasi guru)... ";
+        try {
+            if (!tableExists($pdo, 'master_keys')) {
+                $pdo->exec("CREATE TABLE master_keys (
+                    id INT UNSIGNED NOT NULL AUTO_INCREMENT,
+                    key_value VARCHAR(64) NOT NULL COMMENT 'Token unik (single-use)',
+                    description VARCHAR(255) DEFAULT NULL COMMENT 'Keterangan (mis: Guru TKJ 2024)',
+                    max_uses INT UNSIGNED NOT NULL DEFAULT 1 COMMENT 'Max penggunaan (selalu 1)',
+                    used_count INT UNSIGNED NOT NULL DEFAULT 0 COMMENT 'Sudah dipakai berapa kali',
+                    used_by INT UNSIGNED NULL DEFAULT NULL COMMENT 'User ID yang pakai',
+                    used_at TIMESTAMP NULL DEFAULT NULL COMMENT 'Kapan dipakai',
+                    expires_at TIMESTAMP NULL DEFAULT NULL COMMENT 'Kapan expired (NULL = tidak expired)',
+                    created_by INT UNSIGNED NOT NULL COMMENT 'Admin yang generate',
+                    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    PRIMARY KEY (id),
+                    UNIQUE KEY uq_master_key (key_value),
+                    KEY idx_mk_created_by (created_by),
+                    CONSTRAINT fk_mk_created_by FOREIGN KEY (created_by) REFERENCES users (id) ON DELETE CASCADE
+                ) ENGINE=InnoDB");
+            }
+            $pdo->exec("INSERT IGNORE INTO schema_version (version, description) VALUES (7, 'Tambah tabel master_keys')");
+            echo "✅\n";
+            $applied++;
+        } catch (PDOException $e) { echo "❌ {$e->getMessage()}\n"; exit(1); }
+    }
+
+    // ── v8: Tabel app_settings (konfigurasi aplikasi seperti auto-approve) ──
+    if ($currentVersion < 8) {
+        echo "🔄 v8: Tambah tabel app_settings (konfigurasi aplikasi)... ";
+        try {
+            if (!tableExists($pdo, 'app_settings')) {
+                $pdo->exec("CREATE TABLE app_settings (
+                    setting_key VARCHAR(50) NOT NULL,
+                    setting_value VARCHAR(255) NOT NULL DEFAULT '',
+                    description VARCHAR(255) DEFAULT NULL,
+                    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                    PRIMARY KEY (setting_key)
+                ) ENGINE=InnoDB");
+
+                // Default settings
+                $pdo->exec("INSERT INTO app_settings (setting_key, setting_value, description) VALUES
+                    ('student_auto_approve', '0', 'Jika 1, murid langsung aktif tanpa approve admin'),
+                    ('maintenance_mode', '0', 'Jika 1, site dalam mode maintenance')");
+            }
+            $pdo->exec("INSERT IGNORE INTO schema_version (version, description) VALUES (8, 'Tambah tabel app_settings')");
             echo "✅\n";
             $applied++;
         } catch (PDOException $e) { echo "❌ {$e->getMessage()}\n"; exit(1); }

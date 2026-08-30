@@ -417,13 +417,12 @@ export default function ClassAnalytics() {
                       ⚠️
                     </div>
                     <div style={{ flex: 1 }}>
-                      <div style={{ fontWeight: 600, color: 'var(--text-main)', fontSize: '0.9rem' }}>
+                      <div style={{ fontWeight: 600, color: 'var(--text-main)', fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                         {c.name}
+                        <span style={{ fontSize: '0.75rem', fontWeight: 400, color: 'var(--text-muted)', background: 'rgba(255,255,255,0.05)', padding: '2px 8px', borderRadius: '10px' }}>{c.email}</span>
                       </div>
-                      <div style={{ display: 'flex', gap: '1rem', color: 'var(--text-muted)', fontSize: '0.8rem', marginTop: '0.2rem' }}>
+                      <div style={{ display: 'flex', gap: '1rem', color: 'var(--text-muted)', fontSize: '0.8rem', marginTop: '0.3rem' }}>
                         <span>Pindah tab: <strong style={{ color: '#ef4444' }}>{c.total_switches}x</strong></span>
-                        <span>Attempt: {c.total_attempts}</span>
-                        <span>Rata-rata: {c.avg_score}</span>
                       </div>
                     </div>
                   </div>
@@ -812,3 +811,4 @@ const styles = {
     flexShrink: 0,
   },
 };
+

@@ -5,6 +5,10 @@
 // Semua request ke Gemini API DIPROXY lewat backend ini.
 // API key TIDAK PERNAH dikirim ke frontend.
 //
+// CATATAN PENTING:
+// Pastikan selalu menggunakan model 'gemini-3.6-flash'.
+// Jangan kembalikan ke model versi 1.5 atau 2.0 karena sudah deprecated.
+//
 // Endpoint:
 //   POST /FlacTopus/backend/controller/api/gemini.php
 //   Header: X-CSRF-Token, Content-Type: application/json
@@ -41,12 +45,13 @@ $user = require_auth_json();
 
 // Cek API key ada
 $apiKey = defined('GEMINI_API_KEY') ? GEMINI_API_KEY : '';
-if ($apiKey === '' || $apiKey === 'TARUH_API_KEY_GEMINI_LU_DISINI') {
+if ($apiKey === '' || $apiKey === 'YOUR_API_KEY_HERE') {
     json_response(['success' => false, 'message' => 'Gemini API key belum dikonfigurasi di server.'], 500);
 }
 
 $body   = read_json_body();
 $action = (string) ($body['action'] ?? '');
+$result = '';
 
 try {
     switch ($action) {
@@ -99,7 +104,7 @@ PROMPT;
     // sehingga Gemini memperlakukannya sebagai input, bukan instruksi.
     $userContent = "Pertanyaan Kuis: \"{$question}\"\nJawaban Murid (Salah): \"{$answer}\"\nInstruksi Guru: \"{$context}\"";
 
-    return callGeminiSingle($apiKey, 'gemini-2.0-flash-lite', $userContent, $systemInstruction);
+    return callGeminiSingle($apiKey, 'gemini-3.6-flash', $userContent, $systemInstruction);
 }
 
 /**
@@ -161,7 +166,7 @@ PROMPT;
         $parts = ["Topik materi: " . $inputData];
     }
 
-    $text = callGeminiMultiPart($apiKey, 'gemini-2.5-flash', $parts, $promptText);
+    $text = callGeminiMultiPart($apiKey, 'gemini-3.6-flash', $parts, $promptText);
     $text = preg_replace('/```json/i', '', $text);
     $text = preg_replace('/```/i', '', $text);
     $text = trim($text);
@@ -200,7 +205,7 @@ Tugasmu:
 5. Biarkan frontend merender grafik, jangan buat tabel ASCII atau list data mentah jika sudah dipanggil lewat TAG.
 PROMPT;
 
-    return callGeminiChat($apiKey, 'gemini-2.5-flash', $messages, $systemInstruction);
+    return callGeminiChat($apiKey, 'gemini-3.6-flash', $messages, $systemInstruction);
 }
 
 /**
@@ -227,7 +232,7 @@ ATURAN KETAT (SYSTEM PROMPT INJECTION PREVENTION):
 7. Gunakan gaya bahasa yang ramah, asik, menyemangati, layaknya seorang tutor atau mentor kekinian. Hindari penggunaan markdown berlebihan (tanda pagar ### atau *), cukup gunakan teks tebal (**teks**) sesekali.
 PROMPT;
 
-    return callGeminiChat($apiKey, 'gemini-2.5-flash', $messages, $systemInstruction);
+    return callGeminiChat($apiKey, 'gemini-3.6-flash', $messages, $systemInstruction);
 }
 
 // ================================================================

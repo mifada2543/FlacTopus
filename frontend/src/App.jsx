@@ -22,18 +22,18 @@ import './index.css';
 function App() {
   // basename mengikuti base path dari Vite (base: '/' untuk production)
   return (
-    <Router basename="/">
+    <Router basename={import.meta.env.BASE_URL}>
       <Routes>
         {/* Publik (guest) */}
         <Route path="/" element={<Landing />} />
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
 
-        {/* Wajib login: semua role kecuali guest */}
+        {/* Wajib login: student & teacher (admin di-redirect ke /admin) */}
         <Route
           path="/classes"
           element={(
-            <ProtectedRoute roles={[ROLE.STUDENT, ROLE.TEACHER, ROLE.ADMIN]}>
+            <ProtectedRoute roles={[ROLE.STUDENT, ROLE.TEACHER]}>
               <ClassDashboard />
             </ProtectedRoute>
           )}

@@ -232,7 +232,7 @@ class GarbageCollector
             $deleted++;
         }
 
-        $this->results['expired_trash'] = $deleted . " ruangan dihapus permanen (>" . self::TRASH_RETENTION_HARI . " hari)"];
+        $this->results['expired_trash'] = $deleted . " ruangan dihapus permanen (>" . self::TRASH_RETENTION_HARI . " hari)";
     }
 
     /**
