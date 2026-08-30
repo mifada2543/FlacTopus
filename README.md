@@ -643,4 +643,6 @@ php db/migration.php
 
 ---
 
-*Project ini dikembangkan untuk kompetisi **OSCAR 3.0 Web Development Competition** oleh tim yang beranggotakan siswa SMA/SMK se-JABODETABEK.*
+*Project ini dikembangkan untuk kompetisi **OSCAR 3.0 Web Development Competition** oleh tim webdev 2 dari SMKTI Dwiguna.*
+
+link website: https://meel.web.id
