@@ -131,26 +131,26 @@ Kuis memiliki mode **Boss Fight** bergaya RPG lengkap dengan:
 
 ```
 ┌─────────────────────────────────────────────────────────┐
-│                    FRONTEND (React SPA)                   │
-│  React + Vite + React Router + ReactFlow                 │
-│  Pages: Landing, Login, Register, ClassDashboard,        │
-│         TeacherDashboard, StudentDashboard, Quiz,         │
-│         RoomDetail, AdminPanel (4 tabs), ErrorPage        │
+│                    FRONTEND (React SPA)                 │
+│  React + Vite + React Router + ReactFlow                │
+│  Pages: Landing, Login, Register, ClassDashboard,       │
+│         TeacherDashboard, StudentDashboard, Quiz,       │
+│         RoomDetail, AdminPanel (4 tabs), ErrorPage      │
 ├─────────────────────────────────────────────────────────┤
-│                   BACKEND (PHP Murni)                     │
-│  API JSON: auth/*.php, ruangan.php, admin.php, quiz.php  │
-│  Logic: LoginRegisterLogic, RuanganLogic, MasterKeyLogic, │
-│         RateLimiter, ActivityLogger, GarbageCollector     │
+│                   BACKEND (PHP Murni)                   │
+│  API JSON: auth/*.php, ruangan.php, admin.php, quiz.php │
+│  Logic: LoginRegisterLogic, RuanganLogic, MasterKeyLogic|
+│         RateLimiter, ActivityLogger, GarbageCollector   │
 ├─────────────────────────────────────────────────────────┤
-│                     DATABASE (MySQL)                      │
-│  Tables: users, ruangan, class_members, syllabus,         │
-│          quiz_attempts, login_attempts, activity_log,     │
-│          master_keys, app_settings, schema_version        │
-│  + File JSON per ruangan di storage/ruangan/<id>.json     │
+│                     DATABASE (MySQL)                    │
+│  Tables: users, ruangan, class_members, syllabus,       │
+│          quiz_attempts, login_attempts, activity_log,   │
+│          master_keys, app_settings, schema_version      │
+│  + File JSON per ruangan di storage/ruangan/<id>.json   │
 ├─────────────────────────────────────────────────────────┤
-│                    AI (Google Gemini)                      │
-│  Socratic AI Tutor — menuntun murid lewat dialog         │
-│  via backend proxy (gemini.php) — API key server-side     │
+│                    AI (Google Gemini)                   │
+│  Socratic AI Tutor — menuntun murid lewat dialog        │
+│  via backend proxy (gemini.php) — API key server-side   │
 └─────────────────────────────────────────────────────────┘
 ```
 
