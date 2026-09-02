@@ -9,7 +9,7 @@
 // Contoh aksi yang dicatat:
 //   login, logout, register, login_failed, rate_limited,
 //   approve, reject, change_role, delete_user, reset_password,
-//   delete_room, kick_member
+//   create_room, delete_room, restore_room, force_delete_room, kick_member
 // ============================================================
 
 declare(strict_types=1);

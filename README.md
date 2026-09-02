@@ -328,7 +328,7 @@ Keamanan dibangun berdasarkan referensi project **MEeL** dan diimplementasikan s
 - Tidak ada UI yang terpengaruh untuk manusia (CSS hidden)
 
 ### 4. Activity Logger (Audit Trail)
-Semua aktivitas dicatat ke tabel `activity_log`: login, logout, register, approve, reject, change_role, delete_user, reset_password, rate_limited, register_honeypot_caught, generate_master_key, delete_master_key, update_setting.
+Semua aktivitas dicatat ke tabel `activity_log`: login, logout, register, approve, reject, change_role, delete_user, reset_password, rate_limited, register_honeypot_caught, generate_master_key, delete_master_key, update_setting, create_room, restore_room, force_delete_room, kick_member.
 
 ### 5. Secure Cookie
 - `httponly = true` → JavaScript tidak bisa baca
@@ -635,7 +635,7 @@ php db/migration.php
 - **Storage silabus:** File JSON di `storage/ruangan/<id>.json` (di-deny .htaccess)
 - **AI Key:** `GEMINI_API_KEY` di `auth/config.php` (server-side, tidak ter-expose ke frontend)
 - **Password:** Semua di-hash bcrypt; demo password = `password123`
-- **Timezone:** MySQL timezone = WIB (+07:00)
+- **Timezone:** MySQL timezone = WIB (+07:00, `Asia/Jakarta`)
 - **Register Murid:** Auto-approve ON → langsung aktif; OFF → pending approval admin
 - **Register Guru:** Dengan Master Key → langsung aktif; Tanpa Master Key + Auto-approve ON → langsung aktif; Tanpa Master Key + Auto-approve OFF → pending
 - **Admin Access:** Admin yang akses `/classes` → otomatis redirect ke `/admin`

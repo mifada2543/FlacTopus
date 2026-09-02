@@ -20,6 +20,9 @@
 
 declare(strict_types=1);
 
+// Timezone: UTC+7 (WIB) untuk log PHP date()
+date_default_timezone_set('Asia/Jakarta');
+
 // === CLI GUARD ===
 if (PHP_SAPI !== 'cli') {
     http_response_code(403);
@@ -45,6 +48,9 @@ try {
         $dbUser, $dbPass,
         [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION, PDO::ATTR_EMULATE_PREPARES => false]
     );
+
+    // Timezone sesi MySQL = UTC+7 (WIB) — konsisten dengan auth/config.php
+    $pdo->exec("SET time_zone = '+07:00'");
 
     echo "✅ Koneksi ke database '{$dbName}' berhasil.\n\n";
 
