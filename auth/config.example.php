@@ -11,6 +11,9 @@
 
 declare(strict_types=1);
 
+// --- Timezone: UTC+7 (WIB) untuk PHP date() ---
+date_default_timezone_set('Asia/Jakarta');
+
 // --- Database (default XAMPP: root tanpa password) ---
 const DB_HOST = 'localhost';
 const DB_PORT = 3306;
@@ -49,6 +52,8 @@ function db(): PDO
             PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
             PDO::ATTR_EMULATE_PREPARES   => false,
         ]);
+        // Timezone sesi MySQL = UTC+7 (WIB) — berlaku untuk NOW()/CURRENT_TIMESTAMP
+        $pdo->exec("SET time_zone = '+07:00'");
     }
     return $pdo;
 }

@@ -1148,6 +1148,10 @@ function ActivityLogTab({ csrfToken, showMsg }) {
       change_role:    { bg: 'rgba(139, 92, 246, 0.12)', color: '#a78bfa', label: '🔄 Role' },
       delete_user:    { bg: 'rgba(239, 68, 68, 0.12)', color: '#f87171', label: '🗑️ Hapus' },
       reset_password: { bg: 'rgba(234, 179, 8, 0.12)', color: '#fbbf24', label: '🔑 Reset Pwd' },
+      create_room:    { bg: 'rgba(59, 130, 246, 0.12)', color: '#60a5fa', label: '🏫 Buat Ruangan' },
+      kick_member:    { bg: 'rgba(239, 68, 68, 0.12)', color: '#f87171', label: '👢 Kick Member' },
+      restore_room:   { bg: 'rgba(16, 185, 129, 0.12)', color: '#34d399', label: '♻️ Restore Ruangan' },
+      force_delete_room: { bg: 'rgba(239, 68, 68, 0.12)', color: '#f87171', label: '🗑️ Force Delete Ruangan' },
     };
     const s = map[action] || { bg: 'rgba(107, 114, 128, 0.12)', color: '#9ca3af', label: action };
     return (
@@ -1180,7 +1184,7 @@ function ActivityLogTab({ csrfToken, showMsg }) {
     );
   }
 
-  const allActions = ['login', 'login_failed', 'rate_limited', 'logout', 'register', 'register_failed', 'approve_user', 'reject_user', 'change_role', 'delete_user', 'reset_password'];
+  const allActions = ['login', 'login_failed', 'rate_limited', 'logout', 'register', 'register_failed', 'approve_user', 'reject_user', 'change_role', 'delete_user', 'reset_password', 'create_room', 'kick_member', 'restore_room', 'force_delete_room', 'generate_master_key', 'delete_master_key', 'update_setting_student_auto_approve', 'update_setting_teacher_auto_approve', 'update_setting_maintenance_mode'];
 
   return (
     <div>

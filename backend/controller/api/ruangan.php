@@ -22,6 +22,7 @@
 
 require_once __DIR__ . '/../../../auth/auth.php';
 require_once __DIR__ . '/../logic/RuanganLogic.php';
+require_once __DIR__ . '/../logic/ActivityLogger.php';
 
 // Semua operasi butuh login
 $user = require_auth_json();
@@ -74,12 +75,16 @@ if ($method === 'POST') {
     $body   = read_json_body();
     $action = (string) ($body['action'] ?? '');
     $logic  = new RuanganLogic();
+    $logger = new ActivityLogger();
     $res    = null;
 
     switch ($action) {
         case 'create':
             require_role_json([ROLE_TEACHER, ROLE_ADMIN]);
             $res = $logic->create($user, (string) ($body['nama'] ?? ''), (string) ($body['theme_color'] ?? '#0f172a'));
+            if ($res['success']) {
+                $logger->log($user['id'], 'create_room');
+            }
             break;
 
         case 'join':
